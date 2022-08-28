@@ -1,3 +1,4 @@
+# coding=utf-8
 import json
 import os
 import random
@@ -33,21 +34,15 @@ def make_record(spans, sentence):
 
 def constituents_to_record(parse_tree):
 	"""Function converting Tree object to dictionary compatible with common JSON format
-	 copied from ptb_process.py so it doesn't have dependencies
+	 copied from ptb_process.py, so it doesn't have dependencies
 	"""
 	punctuations = ["-LRB-", "-RRB-", "-LCB-", "-RCB-", "-LSB-", "-RSB-"]
 
-	pos_record = {}
-	pos_record["text"] = " ".join(parse_tree.flatten())
-	pos_record["targets"] = []
+	pos_record = {"text": " ".join(parse_tree.flatten()), "targets": []}
 
-	non_record = {}
-	non_record["text"] = " ".join(parse_tree.flatten())
-	non_record["targets"] = []
+	non_record = {"text": " ".join(parse_tree.flatten()), "targets": []}
 
-	pos_control_record = {}
-	pos_control_record["text"] = " ".join(parse_tree.flatten())
-	pos_control_record["targets"] = []
+	pos_control_record = {"text": " ".join(parse_tree.flatten()), "targets": []}
 	labels = list(LABEL_DICT['pos'].keys())
 	num_labels = len(labels)
 

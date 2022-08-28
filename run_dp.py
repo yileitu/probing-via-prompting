@@ -205,7 +205,7 @@ def main():
 		 TrainingArguments)
 		)
 	if len(sys.argv) == 2 and sys.argv[1].endswith(".json"):
-		# If we pass only one argument to the script and it's the path to a json file,
+		# If we pass only one argument to the script, and it's the path to a json file,
 		# let's parse it to get our arguments.
 		model_args, data_args, training_args = parser.parse_json_file(
 			json_file=os.path.abspath(sys.argv[1])
@@ -478,11 +478,9 @@ def main():
 				"lr"          : training_args.learning_rate
 				},
 			{
-				"params"      : [
-					p for n,
-					      p in model.named_parameters() if any(
-						nd in n for nd in no_decay
-						) and p.requires_grad],
+				"params"      : [p for n, p in model.named_parameters() if any(
+					nd in n for nd in no_decay
+					) and p.requires_grad],
 				"weight_decay": 0.0,
 				"lr"          : training_args.learning_rate
 				},
@@ -495,9 +493,7 @@ def main():
 					p.requires_grad = True
 			optimizer_grouped_parameters.append(
 				{
-					"params": [
-						p for n,
-						      p in model.named_parameters() if n == "gpt2.w"],
+					"params": [p for n, p in model.named_parameters() if n == "gpt2.w"],
 					"lr"    : model_args.pruning_lr,
 					}
 				)

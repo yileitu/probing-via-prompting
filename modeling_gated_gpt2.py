@@ -16,6 +16,7 @@
 """PyTorch OpenAI GPT-2 model."""
 
 import os
+from abc import ABC
 from dataclasses import dataclass
 from typing import Optional, Tuple
 
@@ -103,9 +104,7 @@ def load_tf_weights_in_gpt2(model, config, gpt2_checkpoint_path):
 				num = int(scope_names[1])
 				pointer = pointer[num]
 		try:
-			assert (
-					pointer.shape == array.shape
-			), f"Pointer shape {pointer.shape} and array shape {array.shape} mismatched"
+			assert (pointer.shape == array.shape), f"Pointer shape {pointer.shape} and array shape {array.shape} mismatched"
 		except AssertionError as e:
 			e.args += (pointer.shape, array.shape)
 			raise
@@ -133,7 +132,7 @@ class ProbingViaPromptingOutputs(ModelOutput):
 			Tuple of :obj:`torch.FloatTensor` (one for each layer) of shape :obj:`(batch_size, num_heads,
 			sequence_length, sequence_length)`.
 
-			Attentions weights after the attention softmax, used to compute the weighted average in the self-attention
+			Attention weights after the attention softmax, used to compute the weighted average in the self-attention
 			heads.
 		cross_attentions (:obj:`tuple(torch.FloatTensor)`, `optional`, returned when ``output_attentions=True`` is passed or when ``config.output_attentions=True``):
 			Tuple of :obj:`torch.FloatTensor` (one for each layer) of shape :obj:`(batch_size, num_heads,
@@ -217,7 +216,7 @@ class GPT2Attention(nn.Module):
 		attn_weights = torch.matmul(query, key.transpose(-1, -2))
 
 		if self.scale_attn_weights:
-			attn_weights = attn_weights / (float(value.size(-1)) ** 0.5)
+			attn_weights /= float(value.size(-1)) ** 0.5
 
 		if not self.is_cross_attention:
 			# if only "normal" attention layer implements causal mask
@@ -822,12 +821,12 @@ class GPT2Model(GPT2PreTrainedModel):
 
 			hidden_states = outputs[0]
 			if use_cache is True:
-				presents = presents + (outputs[1],)
+				presents += outputs[1],
 
 			if output_attentions:
-				all_self_attentions = all_self_attentions + (outputs[2 if use_cache else 1],)
+				all_self_attentions += outputs[2 if use_cache else 1],
 				if self.config.add_cross_attention:
-					all_cross_attentions = all_cross_attentions + (outputs[3 if use_cache else 2],)
+					all_cross_attentions += outputs[3 if use_cache else 2],
 
 			# Model Parallel: If it's the last layer for that device, put things on the next device
 			if self.model_parallel:
@@ -840,7 +839,7 @@ class GPT2Model(GPT2PreTrainedModel):
 		hidden_states = hidden_states.view(*output_shape)
 		# Add last hidden state
 		if output_hidden_states:
-			all_hidden_states = all_hidden_states + (hidden_states,)
+			all_hidden_states += hidden_states,
 
 		if not return_dict:
 			return tuple(
@@ -865,7 +864,7 @@ class GPT2Model(GPT2PreTrainedModel):
 	""",
 	GPT2_START_DOCSTRING,
 	)
-class GatedGPT2LMHeadModel(GPT2PreTrainedModel):
+class GatedGPT2LMHeadModel(GPT2PreTrainedModel, ABC):
 	_keys_to_ignore_on_load_missing = [r"attn.masked_bias", r"attn.bias", r"lm_head.weight"]
 
 	def __init__(self, config):
@@ -893,7 +892,7 @@ class GatedGPT2LMHeadModel(GPT2PreTrainedModel):
 			get_device_map(len(self.transformer.h), range(torch.cuda.device_count()))
 			if device_map is None
 			else device_map
-		)
+			)
 		assert_device_map(self.device_map, len(self.transformer.h))
 		self.transformer.parallelize(self.device_map)
 		self.lm_head = self.lm_head.to(self.transformer.first_device)

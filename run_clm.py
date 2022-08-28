@@ -183,7 +183,7 @@ def main():
 
 	parser = HfArgumentParser((ModelArguments, DataTrainingArguments, TrainingArguments))
 	if len(sys.argv) == 2 and sys.argv[1].endswith(".json"):
-		# If we pass only one argument to the script and it's the path to a json file,
+		# If we pass only one argument to the script, and it's the path to a json file,
 		# let's parse it to get our arguments.
 		model_args, data_args, training_args = parser.parse_json_file(json_file=os.path.abspath(sys.argv[1]))
 	else:
@@ -304,7 +304,7 @@ def main():
 	def tokenize_function(examples):
 		with CaptureLogger(tok_logger) as cl:
 			output = tokenizer(examples[text_column_name])
-		# clm input could be much much longer than block_size
+		# clm input could be much, much longer than block_size
 		if "Token indices sequence length is longer than the" in cl.out:
 			tok_logger.warning(
 				"^^^^^^^^^^^^^^^^ Please ignore the warning above - this long input will be chunked into smaller bits before being passed to the model."

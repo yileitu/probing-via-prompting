@@ -237,7 +237,7 @@ class PPTrainer(Trainer):
 		if not isinstance(eval_dataset, IterableDataset):
 			num_samples = len(eval_dataset)
 		# The instance check is weird and does not actually check for the type, but whether the dataset has the right
-		# methods. Therefore we need to make sure it also has the attribute.
+		# methods. Therefore, we need to make sure it also has the attribute.
 		elif isinstance(eval_dataset, IterableDatasetShard) and hasattr(eval_dataset, "num_examples"):
 			num_samples = eval_dataset.num_examples
 		else:
@@ -308,7 +308,7 @@ class PPTrainer(Trainer):
 						The dictionary will be unpacked before being fed to the model. Most models expect the targets under the
 						argument :obj:`labels`. Check your model's documentation for all accepted arguments.
 				prediction_loss_only (:obj:`bool`):
-						Whether or not to return the loss only.
+						Whether to return the loss only.
 				ignore_keys (:obj:`Lst[str]`, `optional`):
 						A list of keys in the output of your model (if it is a dictionary) that should be ignored when
 						gathering predictions.

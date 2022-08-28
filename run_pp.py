@@ -206,7 +206,7 @@ def main():
 		 TrainingArguments)
 		)
 	if len(sys.argv) == 2 and sys.argv[1].endswith(".json"):
-		# If we pass only one argument to the script and it's the path to a json file,
+		# If we pass only one argument to the script, and it's the path to a json file,
 		# let's parse it to get our arguments.
 		model_args, data_args, training_args = parser.parse_json_file(
 			json_file=os.path.abspath(sys.argv[1])
@@ -403,17 +403,11 @@ def main():
 			padding="max_length",
 			max_length=MAX_LENGTH[data_args.task]
 			)
-		examples = {}
-		examples['input_ids'] = result['input_ids']
-		examples["labels"] = [[-100 if mask == 0 else token for mask,
-		                                                        token in mask_and_tokens] for mask_and_tokens in [zip(
-			masks,
-			labels
-			) for masks,
-		          labels in zip(
-			result["attention_mask"],
-			result["input_ids"]
-			)]]
+		examples = {
+			'input_ids': result['input_ids'],
+			"labels"   : [[-100 if mask == 0 else token for mask, token in mask_and_tokens] for mask_and_tokens in
+			              [zip(masks, labels) for masks, labels in zip(result["attention_mask"], result["input_ids"])]]
+			}
 		for i, elem in enumerate(examples['labels']):
 			sep_idx = elem.index(tokenizer.eos_token_id) + 1
 			examples['labels'][i][:sep_idx] = [-100] * sep_idx
@@ -459,20 +453,16 @@ def main():
 		no_decay = ["bias", "LayerNorm.weight"]
 		optimizer_grouped_parameters = [
 			{
-				"params"      : [
-					p for n,
-					      p in model.named_parameters() if not any(
-						nd in n for nd in no_decay
-						) and p.requires_grad],
+				"params"      : [p for n, p in model.named_parameters() if not any(
+					nd in n for nd in no_decay
+					) and p.requires_grad],
 				"weight_decay": training_args.weight_decay,
 				"lr"          : training_args.learning_rate
 				},
 			{
-				"params"      : [
-					p for n,
-					      p in model.named_parameters() if any(
-						nd in n for nd in no_decay
-						) and p.requires_grad],
+				"params"      : [p for n, p in model.named_parameters() if any(
+					nd in n for nd in no_decay
+					) and p.requires_grad],
 				"weight_decay": 0.0,
 				"lr"          : training_args.learning_rate
 				},
@@ -485,9 +475,7 @@ def main():
 					p.requires_grad = True
 			optimizer_grouped_parameters.append(
 				{
-					"params": [
-						p for n,
-						      p in model.named_parameters() if n == "gpt2.w"],
+					"params": [p for n, p in model.named_parameters() if n == "gpt2.w"],
 					"lr"    : model_args.pruning_lr,
 					}
 				)
