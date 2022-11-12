@@ -1,0 +1,11 @@
+
+*.json
+ontonotes/pp/ner/train.json
+ontonotes/pp/ner/test.json
+ontonotes/pp/ner/development.json
+.idea/inspectionProfiles/profiles_settings.xml
+.DS_Store
+.idea/inspectionProfiles/Project_Default.xml
+__pycache__/utils.cpython-38.pyc
+__pycache__/trainer_pp.cpython-38.pyc
+__pycache__/modeling_gpt2_pp.cpython-38.pyc
