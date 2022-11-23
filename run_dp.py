@@ -32,6 +32,7 @@ import random
 import torch
 
 import datasets
+import wandb
 from datasets import load_dataset
 
 import transformers
@@ -153,6 +154,19 @@ class ModelArguments:
         default=False,
         metadata={"help": "Whether heads are pruned."},
     )
+    randomized: bool = field(
+        default=False,
+        metadata={
+            "help": "If true, load the architecture of the model only, without pretrained weights. "
+                    "By default (randomized=False), load the whole pretrained model."
+            },
+        )
+    dev: bool = field(
+        default=True,
+        metadata={
+            "help": "If true, use development dataset to do evaluation. Otherwise use test dataset."
+            },
+        )
 
 
 @dataclass
@@ -202,6 +216,38 @@ def main():
         model_args, data_args, training_args = parser.parse_json_file(json_file=os.path.abspath(sys.argv[1]))
     else:
         model_args, data_args, training_args = parser.parse_args_into_dataclasses()
+
+    # # Post-processing
+    # Pretrained or Randomized
+    if model_args.randomized:
+        model_args.gpt2_name_or_path = None
+        model_args.config_name = "gpt2"
+        model_args.tokenizer_name = "gpt2"
+
+    # Determine the default experiment serial
+    serial = ""
+    if model_args.randomized:
+        serial += "Randomized-"
+    else:
+        serial += "Pretrained-"
+    if model_args.dev:
+        serial += "Dev"
+    else:
+        serial += "Test"
+
+    group_name = f"Epoch{int(training_args.num_train_epochs)}-LR{training_args.learning_rate}-WD{training_args.weight_decay}"
+
+    # WanDB setup
+    wandb_proj_name = "Probe-" + data_args.task + "-DP-LR"
+    os.environ["WANDB_PROJECT"] = wandb_proj_name
+    wandb.init(
+        project=wandb_proj_name,
+        name=serial,
+        group=group_name,
+        )
+    training_args.report_to = ["wandb"]
+    training_args.logging_steps = 50
+    training_args.run_name = serial
 
     # Setup logging
     logging.basicConfig(
@@ -257,7 +303,12 @@ def main():
     logger.info("Loading data for {}".format(data_args.task))
     if training_args.do_train:
         data_files["train"] = os.path.join(data_args.data_dir, data_args.task, 'train.json')
-    data_files["validation"] = os.path.join(data_args.data_dir, data_args.task, 'test.json')
+
+    if model_args.dev:
+        data_files["validation"] = os.path.join(data_args.data_dir, data_args.task, 'development.json')
+    else:
+        data_files["validation"] = os.path.join(data_args.data_dir, data_args.task, 'test.json')
+
     raw_datasets = load_dataset("json", data_files=data_files, cache_dir=model_args.cache_dir, **dataset_args)
     if "_control" in data_args.task:
         data_args.task = data_args.task.replace("_control", "")
