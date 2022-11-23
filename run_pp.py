@@ -22,7 +22,6 @@ https://huggingface.co/models?filter=causal-lm
 # You can also adapt this script on your own causal language modeling task. Pointers for this are left as comments.
 
 import logging
-import math
 import os
 import random
 import sys
@@ -30,6 +29,7 @@ from dataclasses import dataclass, field
 from typing import Optional
 
 import datasets
+import math
 import torch
 import transformers
 import wandb
@@ -154,6 +154,12 @@ class ModelArguments:
 			        "By default (randomized=False), load the whole pretrained model."
 			},
 		)
+	dev: bool = field(
+		default=True,
+		metadata={
+			"help": "If true, use development dataset to do evaluation. Otherwise use test dataset."
+			},
+		)
 
 
 @dataclass
@@ -206,6 +212,7 @@ def main():
 		model_args, data_args, training_args = parser.parse_args_into_dataclasses()
 	model_args: ModelArguments
 	data_args: DataTrainingArguments
+	training_args: TrainingArguments
 
 	# # Post-processing
 	# Pretrained or Randomized
@@ -220,12 +227,15 @@ def main():
 		serial += "Randomized-"
 	else:
 		serial += "Pretrained-"
+	if model_args.dev:
+		serial += "Dev"
+	else:
+		serial += "Test"
 
-	group_name = f"Len{int(model_args.prefix_len)}-Dim{int(model_args.prefix_dim)}"
-	serial += "PrefixTuning-" + group_name
+	group_name = f"Epoch{int(training_args.num_train_epochs)}-LR{training_args.learning_rate}-WD{training_args.weight_decay}"
 
 	# WanDB setup
-	wandb_proj_name = "PvP-" + data_args.task + "-" + "PrefixTuning"
+	wandb_proj_name = "Probe-" + data_args.task + "-PP" + f"Len{model_args.prefix_len}"
 	os.environ["WANDB_PROJECT"] = wandb_proj_name
 	wandb.init(
 		project=wandb_proj_name,
@@ -290,7 +300,12 @@ def main():
 	logger.info("Loading data for {}".format(data_args.task))
 	if training_args.do_train:
 		data_files["train"] = os.path.join(data_args.data_dir, data_args.task, 'train.json')
-	data_files["validation"] = os.path.join(data_args.data_dir, data_args.task, 'test.json')
+
+	if model_args.dev:
+		data_files["validation"] = os.path.join(data_args.data_dir, data_args.task, 'development.json')
+	else:
+		data_files["validation"] = os.path.join(data_args.data_dir, data_args.task, 'test.json')
+
 	raw_datasets = load_dataset("json", data_files=data_files, cache_dir=model_args.cache_dir, **dataset_args)
 	if "_control" in data_args.task:
 		data_args.task = data_args.task.replace("_control", "")

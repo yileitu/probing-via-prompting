@@ -1,4 +1,3 @@
-export WANDB_PROJECT=PvP-NER
 export TASK_NAME=ner
 
 python3 run_pp.py \
@@ -16,5 +15,9 @@ python3 run_pp.py \
   --cache_dir cache/ \
   --save_strategy no \
   --num_train_epochs 3.0 \
-  --learning_rate 5e-5 \
-  --prefix_len 200
+  --learning_rate 3e-5 \
+  --prefix_len 20 \
+  --weight_decay 0.05 \
+  --dev \
+  --randomized \
+
