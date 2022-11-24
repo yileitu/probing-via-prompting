@@ -1,3 +1,15 @@
+#!/bin/bash -l
+
+#SBATCH -n 1
+#SBATCH --gpus=rtx_3090:1
+#SBATCH --gres=gpumem:16384m
+#SBATCH --time=24:00:00
+#SBATCH --mem-per-cpu=8192
+
+module load eth_proxy
+module load gcc/8.2.0
+conda activate PvP
+
 export TASK_NAME=ner
 
 python3 run_pp.py \
@@ -14,10 +26,8 @@ python3 run_pp.py \
   --use_fast_tokenizer False \
   --cache_dir cache/ \
   --save_strategy no \
-  --num_train_epochs 16.0 \
-  --learning_rate 1e-5 \
+  --num_train_epochs 8.0 \
+  --learning_rate 5e-6 \
   --prefix_len 20 \
   --weight_decay 0.0 \
-  --dev \
-  --randomized \
-
+  --randomized

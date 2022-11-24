@@ -162,7 +162,7 @@ class ModelArguments:
             },
         )
     dev: bool = field(
-        default=True,
+        default=False,
         metadata={
             "help": "If true, use development dataset to do evaluation. Otherwise use test dataset."
             },

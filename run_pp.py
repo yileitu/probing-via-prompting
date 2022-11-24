@@ -155,7 +155,7 @@ class ModelArguments:
 			},
 		)
 	dev: bool = field(
-		default=True,
+		default=False,
 		metadata={
 			"help": "If true, use development dataset to do evaluation. Otherwise use test dataset."
 			},
@@ -235,7 +235,7 @@ def main():
 	group_name = f"Epoch{int(training_args.num_train_epochs)}-LR{training_args.learning_rate}-WD{training_args.weight_decay}"
 
 	# WanDB setup
-	wandb_proj_name = "Probe-" + data_args.task + "-PP" + f"Len{model_args.prefix_len}"
+	wandb_proj_name = "Probe-" + data_args.task + "-PP-" + f"Len{model_args.prefix_len}"
 	os.environ["WANDB_PROJECT"] = wandb_proj_name
 	wandb.init(
 		project=wandb_proj_name,
