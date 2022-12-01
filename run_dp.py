@@ -238,7 +238,10 @@ def main():
     group_name = f"Epoch{int(training_args.num_train_epochs)}-LR{training_args.learning_rate}-WD{training_args.weight_decay}"
 
     # WanDB setup
-    wandb_proj_name = "Probe-" + data_args.task + "-DP-LR"
+    if model_args.use_mlp:
+        wandb_proj_name = "Probe-" + data_args.task + "-DP-MLP"
+    else:
+        wandb_proj_name = "Probe-" + data_args.task + "-DP-LR"
     os.environ["WANDB_PROJECT"] = wandb_proj_name
     wandb.init(
         project=wandb_proj_name,
@@ -392,6 +395,14 @@ def main():
     pre_tokenizer = WhitespaceSplit()
     tokenizer.pre_tokenizer = pre_tokenizer
 
+    # Record num of params
+    num_trainable_params = model.num_parameters(only_trainable=True)
+    num_total_params = model.num_parameters()
+    logger.info(f"Number of parameters to train (without adapters): {num_trainable_params}")
+    logger.info(f"Total number of parameters (without adapters): {num_total_params}")
+    wandb.run.summary["num_trainable_params"] = num_trainable_params
+    wandb.run.summary["num_total_params"] = num_total_params
+
     def convert_span(result, pre_tokenized_str, span):
         char_start = pre_tokenized_str[span[0]][1][0]
         char_end = pre_tokenized_str[span[1]][1][1] - 1
@@ -517,7 +528,7 @@ def main():
         metrics["train_samples"] = min(max_train_samples, len(train_dataset))
 
         trainer.log_metrics("train", metrics)
-        trainer.save_metrics("train", metrics)
+        # trainer.save_metrics("train", metrics)
         trainer.save_state()
 
     if model_args.do_prune:
@@ -540,7 +551,7 @@ def main():
         metrics["eval_samples"] = min(max_eval_samples, len(eval_dataset))
 
         trainer.log_metrics("eval", metrics)
-        trainer.save_metrics("eval", metrics)
+        # trainer.save_metrics("eval", metrics)
 
 
 def _mp_fn(index):

@@ -12,7 +12,6 @@ python3 run_dp.py \
   --overwrite_output_dir \
   --cache_dir cache/ \
   --save_strategy no \
-  --use_mlp False \
   --mlp_dropout 0.0 \
   --num_train_epochs 1.0 \
   --learning_rate 1e-3 \

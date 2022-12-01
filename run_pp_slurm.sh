@@ -3,7 +3,7 @@
 #SBATCH -n 1
 #SBATCH --gpus=rtx_3090:1
 #SBATCH --gres=gpumem:16384m
-#SBATCH --time=24:00:00
+#SBATCH --time=120:00:00
 #SBATCH --mem-per-cpu=8192
 
 module load eth_proxy
@@ -26,8 +26,10 @@ python3 run_pp.py \
   --use_fast_tokenizer False \
   --cache_dir cache/ \
   --save_strategy no \
-  --num_train_epochs 8.0 \
-  --learning_rate 5e-6 \
-  --prefix_len 20 \
+  --num_train_epochs 16.0 \
+  --learning_rate 1e-5 \
+  --prefix_len 100 \
   --weight_decay 0.0 \
-  --randomized
+  --randomized \
+  --dev \
+  --bf16

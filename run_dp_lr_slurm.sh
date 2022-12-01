@@ -26,7 +26,8 @@ python3 run_dp.py \
   --save_strategy no \
   --use_mlp False \
   --mlp_dropout 0.0 \
-  --num_train_epochs 15.0 \
+  --num_train_epochs 32.0 \
   --learning_rate 1e-3 \
   --weight_decay 0.0 \
 #  --randomized \
+#  --dev

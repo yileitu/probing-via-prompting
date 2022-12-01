@@ -396,6 +396,14 @@ def main():
 
 	tokenizer.pad_token = tokenizer.eos_token
 
+	# Record num of params
+	num_trainable_params = model.num_parameters(only_trainable=True)
+	num_total_params = model.num_parameters()
+	logger.info(f"Number of parameters to train (without adapters): {num_trainable_params}")
+	logger.info(f"Total number of parameters (without adapters): {num_total_params}")
+	wandb.run.summary["num_trainable_params"] = num_trainable_params
+	wandb.run.summary["num_total_params"] = num_total_params
+
 	def tokenize_function(examples):
 		result = tokenizer(examples[text_column_name], padding="max_length", max_length=MAX_LENGTH[data_args.task])
 		examples = {}
@@ -502,7 +510,7 @@ def main():
 		metrics["train_samples"] = min(max_train_samples, len(train_dataset))
 
 		trainer.log_metrics("train", metrics)
-		trainer.save_metrics("train", metrics)
+		# trainer.save_metrics("train", metrics)
 		trainer.save_state()
 
 	if model_args.do_prune:
@@ -532,7 +540,7 @@ def main():
 		metrics["perplexity"] = perplexity
 
 		trainer.log_metrics("eval", metrics)
-		trainer.save_metrics("eval", metrics)
+		# trainer.save_metrics("eval", metrics)
 
 
 def _mp_fn(index):
