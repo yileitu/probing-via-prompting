@@ -29,4 +29,6 @@ python3 run_dp.py \
   --learning_rate 5e-3 \
   --weight_decay 0.0 \
   --randomized \
-  --dev
+  --dev \
+  --mlp_dim 512 \
+  --mlp_layers 1 \

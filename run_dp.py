@@ -142,6 +142,10 @@ class ModelArguments:
         default=512,
         metadata={"help": "Dimension of hidden states of MLP model."},
     )
+    mlp_layers: Optional[int] = field(
+        default=1,
+        metadata={"help": "The number of layers of MLP model."},
+        )
     num_of_heads: Optional[int] = field(
         default=96,
         metadata={"help": "Number of heads left unpruned."},
@@ -239,7 +243,7 @@ def main():
 
     # WanDB setup
     if model_args.use_mlp:
-        wandb_proj_name = "Probe-" + data_args.task + "-DP-MLP"
+        wandb_proj_name = f"Probe-{data_args.task}-DP-MLP-Dim{model_args.mlp_dim}-Layer{model_args.mlp_layers}"
     else:
         wandb_proj_name = "Probe-" + data_args.task + "-DP-LR"
     os.environ["WANDB_PROJECT"] = wandb_proj_name
@@ -372,11 +376,13 @@ def main():
     gpt2.resize_token_embeddings(len(tokenizer))
 
     if model_args.model_path:
+        # TODO: Pretrained model 如何更改GPT2的mlp
         config = AutoConfig.from_pretrained(model_args.model_path, cache_dir=model_args.cache_dir)
         model = GPT2ForDiagnosticProbing.from_pretrained(model_args.model_path, config=config, gpt2=gpt2)
     else:
         config.mlp_dropout = model_args.mlp_dropout
         config.mlp_dim = model_args.mlp_dim
+        config.mlp_layers = model_args.mlp_layers
         config.unary = IS_UNARY[data_args.task]
         config.use_mlp = model_args.use_mlp
         model = GPT2ForDiagnosticProbing(config, gpt2)
@@ -529,7 +535,7 @@ def main():
 
         trainer.log_metrics("train", metrics)
         # trainer.save_metrics("train", metrics)
-        trainer.save_state()
+        # trainer.save_state()
 
     if model_args.do_prune:
         head_mask = convert_gate_to_mask(model.w, model_args.num_of_heads)
