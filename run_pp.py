@@ -113,6 +113,10 @@ class ModelArguments:
 			        "with private models)."
 			},
 		)
+	flat: Optional[bool] = field(
+		default=False,
+		metadata={"help": "If True, train the prefix parameters directly. Otherwise, reparametrize using a bottleneck MLP."},
+		)
 	prefix_len: Optional[int] = field(
 		default=200,
 		metadata={"help": "Length of the prefix."},
@@ -235,7 +239,10 @@ def main():
 	group_name = f"Epoch{int(training_args.num_train_epochs)}-LR{training_args.learning_rate}-WD{training_args.weight_decay}"
 
 	# WanDB setup
-	wandb_proj_name = "Probe-" + data_args.task + "-PP-" + f"Len{model_args.prefix_len}"
+	if model_args.flat:
+		wandb_proj_name = f"Probe-{data_args.task}-PP-flat-Len{model_args.prefix_len}"
+	else:
+		wandb_proj_name = f"Probe-{data_args.task}-PP-Len{model_args.prefix_len}"
 	os.environ["WANDB_PROJECT"] = wandb_proj_name
 	wandb.init(
 		project=wandb_proj_name,
@@ -378,6 +385,7 @@ def main():
 		config = AutoConfig.from_pretrained(model_args.prefix_model_path, cache_dir=model_args.cache_dir)
 		model = GPT2ForProbingViaPrompting.from_pretrained(model_args.prefix_model_path, config=config, gpt2=gpt2)
 	else:
+		config.flat = model_args.flat
 		config.prefix_len = model_args.prefix_len
 		config.prefix_dim = model_args.prefix_dim
 		config.prefix_drop = model_args.prefix_drop

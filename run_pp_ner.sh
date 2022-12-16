@@ -14,9 +14,10 @@ python3 run_pp.py \
   --use_fast_tokenizer False \
   --cache_dir cache/ \
   --save_strategy no \
-  --num_train_epochs 64.0 \
-  --learning_rate 1e-6 \
-  --prefix_len 500 \
+  --num_train_epochs 8.0 \
+  --learning_rate 1e-5 \
+  --prefix_len 20 \
+  --flat \
   --weight_decay 0.0 \
   --randomized \
   --dev \

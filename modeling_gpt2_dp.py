@@ -1,4 +1,5 @@
 from typing import Optional
+from copy import deepcopy
 
 import torch
 import wandb
@@ -79,18 +80,25 @@ class GPT2ForDiagnosticProbing(GPT2PreTrainedModel):
 					]
 			output_layer_list = [nn.Linear(self.mlp_dim, self.num_labels)]
 			if self.mlp_layers == 1:
-				classifier_module_list = input_layer_list + output_layer_list
+				classifier_module_list = deepcopy(input_layer_list) + deepcopy(output_layer_list)
 			elif self.mlp_layers >= 2:
-				hidden_layer_base = [
-					nn.Linear(self.mlp_dim, self.mlp_dim),
-					nn.Tanh(),
-					nn.LayerNorm(self.mlp_dim),
-					nn.Dropout(self.mlp_dropout)
-				]
-				classifier_module_list = input_layer_list + hidden_layer_base * (self.mlp_layers - 1) + output_layer_list
+				classifier_module_list = deepcopy(input_layer_list)
+				for _ in range(self.mlp_layers - 1):
+					classifier_module_list.append(nn.Linear(self.mlp_dim, self.mlp_dim))
+					classifier_module_list.append(nn.Tanh())
+					classifier_module_list.append(nn.LayerNorm(self.mlp_dim))
+					classifier_module_list.append(nn.Dropout(self.mlp_dropout))
+				classifier_module_list += deepcopy(output_layer_list)
+				# hidden_layer_base = [
+				# 	nn.Linear(self.mlp_dim, self.mlp_dim),
+				# 	nn.Tanh(),
+				# 	nn.LayerNorm(self.mlp_dim),
+				# 	nn.Dropout(self.mlp_dropout)
+				# ]
+				# classifier_module_list = input_layer_list + hidden_layer_base * (self.mlp_layers - 1) + output_layer_list
 			else:
 				raise ValueError(f"The num of MLP layers should be a positive integer. Your input is {self.mlp_layer}")
-			self.classifier = nn.ModuleList(classifier_module_list)
+			self.classifier = nn.Sequential(*classifier_module_list)
 
 		self.w = nn.Parameter(torch.empty([config.num_hidden_layers, config.num_attention_heads]))
 		nn.init.xavier_uniform(self.w)

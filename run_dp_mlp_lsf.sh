@@ -13,10 +13,12 @@ python3 run_dp.py \
   --cache_dir cache/ \
   --save_strategy no \
   --mlp_dropout 0.0 \
-  --num_train_epochs 512.0 \
-  --learning_rate 5e-3 \
+  --num_train_epochs 16.0 \
+  --learning_rate 1e-3 \
   --weight_decay 0.0 \
   --randomized \
   --dev \
   --mlp_dim 512 \
   --mlp_layers 1 \
+  --fp16
+#  --bf16
