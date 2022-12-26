@@ -22,6 +22,7 @@ https://huggingface.co/models?filter=causal-lm
 # You can also adapt this script on your own causal language modeling task. Pointers for this are left as comments.
 
 import logging
+import math
 import os
 import random
 import sys
@@ -29,7 +30,6 @@ from dataclasses import dataclass, field
 from typing import Optional
 
 import datasets
-import math
 import torch
 import transformers
 import wandb
@@ -42,7 +42,8 @@ from transformers.utils.versions import require_version
 from modeling_gated_gpt2 import GatedGPT2LMHeadModel
 from modeling_gpt2_pp import GPT2ForProbingViaPrompting
 from trainer_pp import PPTrainer
-from utils import LABEL_DICT, convert_gate_to_mask
+from utils import LABEL_DICT, convert_gate_to_mask, transform_dict
+from dataclasses import asdict
 
 # Will error if the minimal version of Transformers is not installed. Remove at your own risks.
 # check_min_version("4.13.0.dev0")
@@ -115,7 +116,9 @@ class ModelArguments:
 		)
 	flat: Optional[bool] = field(
 		default=False,
-		metadata={"help": "If True, train the prefix parameters directly. Otherwise, reparametrize using a bottleneck MLP."},
+		metadata={
+			"help": "If True, train the prefix parameters directly. Otherwise, reparametrize using a bottleneck MLP."
+			},
 		)
 	prefix_len: Optional[int] = field(
 		default=200,
@@ -162,6 +165,25 @@ class ModelArguments:
 		default=False,
 		metadata={
 			"help": "If true, use development dataset to do evaluation. Otherwise use test dataset."
+			},
+		)
+	mod_randomized: bool = field(
+		default=False,
+		metadata={
+			"help": "If true, load the architecture of the model only, without pretrained weights. "
+			        "Artificially specify how to initialize the weights, e.g., init_mean, init_std, etc."
+			},
+		)
+	init_mean: float = field(
+		default=0.0,
+		metadata={
+			"help": "Randomized model weight initialization mean"
+			},
+		)
+	init_std: float = field(
+		default=0.02,
+		metadata={
+			"help": "Randomized model weight initialization std"
 			},
 		)
 
@@ -220,7 +242,7 @@ def main():
 
 	# # Post-processing
 	# Pretrained or Randomized
-	if model_args.randomized:
+	if model_args.randomized or model_args.mod_randomized:
 		model_args.gpt2_name_or_path = None
 		model_args.config_name = "gpt2"
 		model_args.tokenizer_name = "gpt2"
@@ -229,6 +251,8 @@ def main():
 	serial = ""
 	if model_args.randomized:
 		serial += "Randomized-"
+	elif model_args.mod_randomized:
+		serial += "ModRand-"
 	else:
 		serial += "Pretrained-"
 	if model_args.dev:
@@ -236,10 +260,15 @@ def main():
 	else:
 		serial += "Test"
 
-	group_name = f"Epoch{int(training_args.num_train_epochs)}-LR{training_args.learning_rate}-WD{training_args.weight_decay}"
+	if model_args.mod_randomized:
+		group_name = f"Mean{model_args.init_mean}-Std{model_args.init_std}"
+	else:
+		group_name = f"Epoch{int(training_args.num_train_epochs)}-LR{training_args.learning_rate}-WD{training_args.weight_decay}"
 
 	# WanDB setup
-	if model_args.flat:
+	if model_args.mod_randomized:
+		wandb_proj_name = f"Probe-{data_args.task}-ModRand-Prefix-Len{model_args.prefix_len}"
+	elif model_args.flat:
 		wandb_proj_name = f"Probe-{data_args.task}-PP-flat-Len{model_args.prefix_len}"
 	else:
 		wandb_proj_name = f"Probe-{data_args.task}-PP-Len{model_args.prefix_len}"
@@ -252,6 +281,9 @@ def main():
 	training_args.report_to = ["wandb"]
 	training_args.logging_steps = 50
 	training_args.run_name = serial
+
+	wandb.log(transform_dict(asdict(model_args)))
+	wandb.log(transform_dict(asdict(data_args)))
 
 	# Setup logging
 	logging.basicConfig(
@@ -373,10 +405,19 @@ def main():
 			revision=model_args.model_revision,
 			use_auth_token=True if model_args.use_auth_token else None,
 			)
-	else:
+	elif model_args.randomized:
+		config.mod_randomized = False
 		gpt2 = GatedGPT2LMHeadModel(config)
 		n_params = sum(dict((p.data_ptr(), p.numel()) for p in gpt2.parameters()).values())
 		logger.info(f"Training new gpt2 from scratch - Total size={n_params / 2 ** 20:.2f}M params")
+	elif model_args.mod_randomized:
+		config.mod_randomized = True
+		config.init_mean = model_args.init_mean
+		config.init_std = model_args.init_std
+		gpt2 = GatedGPT2LMHeadModel(config)
+		n_params = sum(dict((p.data_ptr(), p.numel()) for p in gpt2.parameters()).values())
+		logger.info(f"Training new gpt2 from scratch - Total size={n_params / 2 ** 20:.2f}M params")
+		logger.info(f"Modified weight initialization strategy, mean: {config.init_mean}, std:{config.init_std}")
 
 	gpt2.resize_token_embeddings(len(tokenizer))
 	gpt2.eval_acc = True
@@ -518,8 +559,8 @@ def main():
 		metrics["train_samples"] = min(max_train_samples, len(train_dataset))
 
 		trainer.log_metrics("train", metrics)
-		# trainer.save_metrics("train", metrics)
-		# trainer.save_state()
+	# trainer.save_metrics("train", metrics)
+	# trainer.save_state()
 
 	if model_args.do_prune:
 		head_mask = convert_gate_to_mask(model.gpt2.w, model_args.num_of_heads)
@@ -548,7 +589,7 @@ def main():
 		metrics["perplexity"] = perplexity
 
 		trainer.log_metrics("eval", metrics)
-		# trainer.save_metrics("eval", metrics)
+	# trainer.save_metrics("eval", metrics)
 
 
 def _mp_fn(index):

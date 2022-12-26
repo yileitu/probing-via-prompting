@@ -1,7 +1,7 @@
 #!/bin/bash -l
 
 #SBATCH -n 1
-#SBATCH --gpus=nvidia_a100_80gb_pcie:1
+#SBATCH --gpus=rtx_3090:1
 #SBATCH --gres=gpumem:16384m
 #SBATCH --time=120:00:00
 #SBATCH --mem-per-cpu=8192
@@ -26,12 +26,12 @@ python3 run_dp.py \
   --cache_dir cache/ \
   --save_strategy no \
   --mlp_dropout 0.0 \
-  --num_train_epochs 256.0 \
-  --learning_rate 5e-4 \
+  --num_train_epochs 8.0 \
+  --learning_rate 1e-3 \
   --weight_decay 0.0 \
   --randomized \
   --dev \
-  --mlp_dim 512 \
+  --mlp_dim 4096 \
   --mlp_layers 4 \
   --fp16
 

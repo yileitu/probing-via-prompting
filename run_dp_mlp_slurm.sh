@@ -27,11 +27,10 @@ python3 run_dp.py \
   --save_strategy no \
   --mlp_dropout 0.0 \
   --num_train_epochs 1.0 \
-  --learning_rate 5e-3 \
+  --learning_rate 1e-1 \
   --weight_decay 0.0 \
-  --randomized \
   --dev \
-  --mlp_dim 512 \
-  --mlp_layers 32 \
-  --fp16
-
+  --fp16 \
+  --init_mean 0.01 \
+  --init_std 0.001 \
+  --mod_randomized
