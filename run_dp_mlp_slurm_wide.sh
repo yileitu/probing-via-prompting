@@ -26,12 +26,12 @@ python3 run_dp.py \
   --cache_dir cache/ \
   --save_strategy no \
   --mlp_dropout 0.0 \
-  --num_train_epochs 8.0 \
-  --learning_rate 1e-3 \
+  --num_train_epochs 1.0 \
+  --learning_rate 5e-3 \
   --weight_decay 0.0 \
   --randomized \
   --dev \
   --mlp_dim 4096 \
-  --mlp_layers 4 \
+  --mlp_layers 32 \
   --fp16
 

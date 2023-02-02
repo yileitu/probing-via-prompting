@@ -176,6 +176,12 @@ class ModelArguments:
 			"help": "Randomized model weight initialization std"
 			},
 		)
+	verbose: int = field(
+		default=0,
+		metadata={
+			"help": "How to group wandb experiments."
+			},
+		)
 
 
 @dataclass
@@ -259,6 +265,13 @@ def main():
 		wandb_proj_name = "Probe-" + data_args.task + "-DP-LR"
 	if model_args.mod_randomized:
 		wandb_proj_name += "-ModRand"
+
+	# TODO: 写得不优美，先用verbose代替处理如何控制wandb分组
+	if model_args.verbose == 1 and model_args.mod_randomized:
+		wandb_proj_name = f"Probe-{data_args.task}-DP-MLP-ModRand-Mean{model_args.init_mean}-Std{model_args.init_std}"
+		group_name = f"Dim{model_args.mlp_dim}-Layer{model_args.mlp_layers}-Epoch{int(training_args.num_train_epochs)}"
+		serial = f"LR{training_args.learning_rate}-ModRand"
+
 	os.environ["WANDB_PROJECT"] = wandb_proj_name
 	wandb.init(
 		project=wandb_proj_name,
@@ -585,7 +598,9 @@ def main():
 		metrics["eval_samples"] = min(max_eval_samples, len(eval_dataset))
 
 		trainer.log_metrics("eval", metrics)
-	# trainer.save_metrics("eval", metrics)
+
+
+# trainer.save_metrics("eval", metrics)
 
 
 def _mp_fn(index):
