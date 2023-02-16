@@ -39,7 +39,7 @@ from transformers.modeling_utils import (
 from transformers.utils import logging
 from transformers.utils.model_parallel_utils import assert_device_map, get_device_map
 
-from utils import STEFunction
+from utils import STEFunction, hardmax
 
 logger = logging.get_logger(__name__)
 
@@ -198,6 +198,8 @@ class GPT2Attention(nn.Module):
 
 		self.head_mask = None
 
+		self.saturated: bool = config.saturated
+
 	def prune_heads(self, heads):
 		if len(heads) == 0:
 			return
@@ -229,7 +231,11 @@ class GPT2Attention(nn.Module):
 			# Apply the attention mask
 			attn_weights = attn_weights + attention_mask
 
-		attn_weights = nn.Softmax(dim=-1)(attn_weights)
+		if not self.saturated:
+			attn_weights = nn.Softmax(dim=-1)(attn_weights)
+		else:
+			attn_weights = hardmax(attn_weights)
+
 		attn_weights = self.attn_dropout(attn_weights)
 
 		# Mask heads if we want to

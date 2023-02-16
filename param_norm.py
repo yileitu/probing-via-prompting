@@ -43,25 +43,27 @@ def filter_by_layer(param_names, layer_num: int):
 if __name__ == "__main__":
 	gpt = AutoModel.from_pretrained("gpt2")
 	gpt_params = gpt.named_parameters()
+	# pprint(gpt_params)
 	gpt_module_mean_std: Dict[str, Tuple[float, float]] = dict()
 
-	# for name, values in gpt_params:
-	# 	flattened_values = torch.flatten(values)
-	# 	mean = torch.mean(flattened_values).item()
-	# 	std = torch.std(flattened_values).item()
-	# 	gpt_module_mean_std[name] = (mean, std)
-
-	# pprint(gpt_module_mean_std)
-
-	all_param_values = torch.tensor([])
 	for name, values in gpt_params:
-		pprint(name)
 		flattened_values = torch.flatten(values)
-		all_param_values = torch.cat((all_param_values, flattened_values))
+		mean = torch.mean(flattened_values).item()
+		std = torch.std(flattened_values).item()
+		gpt_module_mean_std[name] = (mean, std)
 
-	print(all_param_values.size())
+	pprint(gpt_module_mean_std)
 
-	mean = torch.mean(all_param_values).item()
-	std = torch.std(all_param_values).item()
-
-	print(mean, std)
+	# all_param_values = torch.tensor([])
+	# for name, values in gpt_params:
+	# 	pprint(name)
+	# 	pprint(type(name))
+	# 	flattened_values = torch.flatten(values)
+	# 	all_param_values = torch.cat((all_param_values, flattened_values))
+	#
+	# print(all_param_values.size())
+	#
+	# mean = torch.mean(all_param_values).item()
+	# std = torch.std(all_param_values).item()
+	#
+	# print(mean, std)

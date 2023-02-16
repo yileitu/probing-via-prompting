@@ -1,4 +1,4 @@
-from typing import Dict, Any
+from typing import Any, Dict
 
 import torch
 
@@ -53,6 +53,7 @@ class STEFunction(torch.autograd.Function):
 	def backward(ctx, grad_output):
 		return grad_output, None
 
+
 def transform_dict(config_dict: Dict, expand: bool = True):
 	"""
 	General function to transform any dictionary into wandb config acceptable format
@@ -77,3 +78,17 @@ def transform_dict(config_dict: Dict, expand: bool = True):
 			vname = v.__name__ if hasattr(v, '__name__') else v.__class__.__name__
 			ret[k] = f"{v.__module__}:{vname}"
 	return ret
+
+
+def hardmax(t):
+	idx = t.argmax(dim=-1).view(-1)
+	_t = 1
+	for i in t.shape[:-1]:
+		_t *= i
+	_range = torch.arange(_t, device=t.device)
+	step = t.shape[-1]
+	_range *= step
+	idx += _range
+	res = torch.zeros_like(t).view(-1)
+	res[idx] = 1.
+	return res.view(t.shape)

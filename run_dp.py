@@ -182,7 +182,12 @@ class ModelArguments:
 			"help": "How to group wandb experiments."
 			},
 		)
-
+	saturated: bool = field(
+		default=False,
+		metadata={
+			"help": "Saturated attention mode."
+			},
+		)
 
 @dataclass
 class DataTrainingArguments:
@@ -271,6 +276,11 @@ def main():
 		wandb_proj_name = f"Probe-{data_args.task}-DP-MLP-ModRand-Mean{model_args.init_mean}-Std{model_args.init_std}"
 		group_name = f"Dim{model_args.mlp_dim}-Layer{model_args.mlp_layers}-Epoch{int(training_args.num_train_epochs)}"
 		serial = f"LR{training_args.learning_rate}-ModRand"
+
+	if model_args.verbose == 2 and model_args.saturated:
+		wandb_proj_name = f"Probe-{data_args.task}-DP-MLP-Saturated"
+		group_name = f"Dim{model_args.mlp_dim}-Layer{model_args.mlp_layers}-Epoch{int(training_args.num_train_epochs)}"
+		serial = f"LR{training_args.learning_rate}-Saturated"
 
 	os.environ["WANDB_PROJECT"] = wandb_proj_name
 	wandb.init(
@@ -392,10 +402,13 @@ def main():
 			)
 
 	config.num_labels = len(label2id)
+	config.saturated = model_args.saturated
+
 	if model_args.gpt2_name_or_path:
 		gpt2 = GPT2Model.from_pretrained(
 			model_args.gpt2_name_or_path,
 			cache_dir=model_args.cache_dir,
+			config=config
 			)
 	elif model_args.randomized:
 		gpt2 = GPT2Model(config)
