@@ -278,7 +278,12 @@ def main():
 		serial = f"LR{training_args.learning_rate}-ModRand"
 
 	if model_args.verbose == 2 and model_args.saturated:
-		wandb_proj_name = f"Probe-{data_args.task}-DP-MLP-Saturated"
+		if model_args.randomized:
+			wandb_proj_name = f"Probe-{data_args.task}-DP-MLP-Saturated-Randomized"
+		elif model_args.mod_randomized:
+			wandb_proj_name = f"Probe-{data_args.task}-DP-MLP-Saturated-ModRand"
+		else:
+			wandb_proj_name = f"Probe-{data_args.task}-DP-MLP-Saturated-Pretrained"
 		group_name = f"Dim{model_args.mlp_dim}-Layer{model_args.mlp_layers}-Epoch{int(training_args.num_train_epochs)}"
 		serial = f"LR{training_args.learning_rate}-Saturated"
 

@@ -80,7 +80,7 @@ def transform_dict(config_dict: Dict, expand: bool = True):
 	return ret
 
 
-def hardmax(t):
+def hardmax2(t):
 	idx = t.argmax(dim=-1).view(-1)
 	_t = 1
 	for i in t.shape[:-1]:
@@ -92,3 +92,24 @@ def hardmax(t):
 	res = torch.zeros_like(t).view(-1)
 	res[idx] = 1.
 	return res.view(t.shape)
+
+
+def hardmax(X):
+	M, _ = torch.max(X, dim=-1, keepdim=True)
+	A = (M == X).float()
+	A /= torch.sum(A, dim=-1, keepdim=True)
+
+	return A
+
+
+# pre_x = [[-10, 2, 2, 2], [-100, 1, 0, 1]]
+# X = torch.Tensor(pre_x)
+# print(hardmax2(X))
+#
+# for num_dims in range(1, 6):
+# 	pre_x = [[-10, 2, 2, 2], [-100, 1, 0, 1]]
+# 	for _ in range(num_dims - 1):
+# 		pre_x = [pre_x]
+# 		X = torch.Tensor(pre_x)
+# 		print(X)
+# 		print(hardmax2(X), '\n')
