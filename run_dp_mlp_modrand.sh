@@ -3,7 +3,7 @@
 #SBATCH -n 1
 #SBATCH --gpus=rtx_3090:1
 #SBATCH --gres=gpumem:16384m
-#SBATCH --time=120:00:00
+#SBATCH --time=48:00:00
 #SBATCH --mem-per-cpu=8192
 
 module load eth_proxy
@@ -30,9 +30,9 @@ python3 run_dp.py \
   --dev \
   --fp16 \
   --init_mean 0.0 \
-  --init_std 0.0005 \
-  --num_train_epochs 32 \
-  --learning_rate 1e-2 \
+  --init_std 5e-2 \
+  --num_train_epochs 256 \
+  --learning_rate 5e-4 \
   --mod_randomized \
   --mlp_dim 512 \
   --mlp_layers 16 \

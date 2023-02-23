@@ -9,3 +9,5 @@ ontonotes/pp/ner/development.json
 __pycache__/utils.cpython-38.pyc
 __pycache__/trainer_pp.cpython-38.pyc
 __pycache__/modeling_gpt2_pp.cpython-38.pyc
+/gpt_module_agg_stat.csv
+/gpt_module_stat.csv

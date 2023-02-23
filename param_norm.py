@@ -1,11 +1,11 @@
+import re
 from math import sqrt
-from pprint import pprint
-from typing import Dict, Iterable, Tuple
-
-import torch
-from transformers import AutoModel
+from typing import Dict, Iterable, List, Tuple
 
 import numpy as np
+import pandas as pd
+import torch
+from transformers import AutoModel
 
 
 def _fan_in(shape) -> int:
@@ -40,19 +40,38 @@ def filter_by_layer(param_names, layer_num: int):
 	return [p for p in param_names if p.startswith(expr)]
 
 
-if __name__ == "__main__":
+def pos_neg_counts(a: np.ndarray) -> Tuple[int, int]:
+	return (a > 0).sum(), (a < 0).sum()
+
+
+def aggregate_gpt_module_params() -> Dict[str, np.ndarray]:
 	gpt = AutoModel.from_pretrained("gpt2")
 	gpt_params = gpt.named_parameters()
-	# pprint(gpt_params)
-	gpt_module_mean_std: Dict[str, Tuple[float, float]] = dict()
-
+	gpt_agg_params: Dict[str, np.ndarray] = {}
 	for name, values in gpt_params:
-		flattened_values = torch.flatten(values)
-		mean = torch.mean(flattened_values).item()
-		std = torch.std(flattened_values).item()
-		gpt_module_mean_std[name] = (mean, std)
+		values = torch.flatten(values).detach().cpu().numpy()
 
-	pprint(gpt_module_mean_std)
+		matched = re.match(MATCH_RULE, name)
+		if matched:
+			agg_name = matched.group(0)
+			if agg_name not in gpt_agg_params:
+				gpt_agg_params[agg_name] = values
+			else:
+				gpt_agg_params[agg_name] = np.append(gpt_agg_params[agg_name], values)
+		else:
+			gpt_agg_params[name] = values
+
+	return gpt_agg_params
+
+
+if __name__ == "__main__":
+	GPT_DF_COLS: List[str] = ["module_name", "total_num", "pos_cnt", "neg_cnt", "diff", "diff_ratio", "mean", "abs_mean", "std",
+	                          "abs_std"]
+	MATCH_RULE: str = r"h\.\d{1,2}"  # Match prefix "h.1" format
+
+	gpt = AutoModel.from_pretrained("gpt2")
+	gpt_params = gpt.named_parameters()
+	gpt_module_stat_df: pd.DataFrame = pd.DataFrame(columns=GPT_DF_COLS)
 
 	# all_param_values = torch.tensor([])
 	# for name, values in gpt_params:
@@ -60,10 +79,70 @@ if __name__ == "__main__":
 	# 	pprint(type(name))
 	# 	flattened_values = torch.flatten(values)
 	# 	all_param_values = torch.cat((all_param_values, flattened_values))
-	#
 	# print(all_param_values.size())
-	#
 	# mean = torch.mean(all_param_values).item()
 	# std = torch.std(all_param_values).item()
-	#
 	# print(mean, std)
+
+	# for name, values in gpt_params:
+	# 	flattened_values: torch.Tensor = torch.flatten(values)
+	# 	flattened_values: np.ndarray = flattened_values.detach().cpu().numpy()
+	#
+	# 	pos_cnt, neg_cnt = pos_neg_counts(flattened_values)
+	# 	diff = abs(pos_cnt - neg_cnt)
+	# 	diff_ratio = diff / (pos_cnt + neg_cnt)
+	#
+	# 	mean = float(np.mean(flattened_values))
+	# 	std = float(np.std(flattened_values))
+	#
+	# 	abs_values = np.absolute(flattened_values)
+	# 	abs_mean = float(np.mean(abs_values))
+	# 	abs_std = float(np.std(abs_values))
+	#
+	# 	datapoint = {
+	# 		"module_name": name,
+	# 		"pos_cnt"    : pos_cnt,
+	# 		"neg_cnt"    : neg_cnt,
+	# 		"diff"       : diff,
+	# 		"diff_ratio" : diff_ratio,
+	# 		"mean"       : mean,
+	# 		"abs_mean"   : abs_mean,
+	# 		"std"        : std,
+	# 		"abs_std"    : abs_std,
+	# 		}
+	# 	datapoint_df = pd.DataFrame([datapoint])
+	# 	gpt_module_stat_df = pd.concat([gpt_module_stat_df, datapoint_df])
+	#
+	# gpt_module_stat_df.to_csv("gpt_module_stat.csv")
+
+	gpt_module_agg_stat_df: pd.DataFrame = pd.DataFrame(columns=GPT_DF_COLS)
+	gpt_agg_params = aggregate_gpt_module_params()
+	for name, values in gpt_agg_params.items():
+		total_num = len(values)
+		pos_cnt, neg_cnt = pos_neg_counts(values)
+		diff = abs(pos_cnt - neg_cnt)
+		diff_ratio = diff / (pos_cnt + neg_cnt)
+
+		mean = float(np.mean(values))
+		std = float(np.std(values))
+
+		abs_values = np.absolute(values)
+		abs_mean = float(np.mean(abs_values))
+		abs_std = float(np.std(abs_values))
+
+		datapoint = {
+			"total_num"  : total_num,
+			"module_name": name,
+			"pos_cnt"    : pos_cnt,
+			"neg_cnt"    : neg_cnt,
+			"diff"       : diff,
+			"diff_ratio" : diff_ratio,
+			"mean"       : mean,
+			"abs_mean"   : abs_mean,
+			"std"        : std,
+			"abs_std"    : abs_std,
+			}
+		datapoint_df = pd.DataFrame([datapoint])
+		gpt_module_agg_stat_df = pd.concat([gpt_module_agg_stat_df, datapoint_df])
+
+	gpt_module_agg_stat_df.to_csv("gpt_module_agg_stat.csv")
