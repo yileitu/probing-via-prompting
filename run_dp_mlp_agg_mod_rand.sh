@@ -29,10 +29,8 @@ python3 run_dp.py \
   --weight_decay 0.0 \
   --dev \
   --fp16 \
-  --num_train_epochs 256 \
-  --learning_rate 5e-6 \
+  --num_train_epochs 16 \
+  --learning_rate 1e-4 \
+  --agg_mod_rand \
   --mlp_dim 512 \
-  --mlp_layers 1 \
-  --saturated \
-  --randomized \
-  --verbose 2 \
+  --mlp_layers 16 \

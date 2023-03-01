@@ -102,9 +102,22 @@ def hardmax(X):
 	return A
 
 
+def bimodal_normal(x: torch.Tensor, mu: float, sigma: float) -> None:
+	"""
+	Inits the weights (in-place) with the bimodal normal distribution (symmetric).
+
+	:param x: input tensor
+	:param mu: mean of the normal distribution
+	:param sigma: standard deviation of the normal distribution
+	"""
+	size = x.size()
+	x.normal_(mean=mu, std=sigma)
+	mask = torch.randint(0, 2, size=size) * 2 - 1  # Randomly flip half the values to their opposite sign
+	x *= mask
+
 # pre_x = [[-10, 2, 2, 2], [-100, 1, 0, 1]]
 # X = torch.Tensor(pre_x)
-# print(hardmax2(X))
+# print(hardmax(X))
 #
 # for num_dims in range(1, 6):
 # 	pre_x = [[-10, 2, 2, 2], [-100, 1, 0, 1]]

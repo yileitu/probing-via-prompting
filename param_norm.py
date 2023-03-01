@@ -5,7 +5,7 @@ from typing import Dict, Iterable, List, Tuple
 import numpy as np
 import pandas as pd
 import torch
-from transformers import AutoModel
+from transformers import AutoConfig, AutoModel
 
 
 def _fan_in(shape) -> int:
@@ -50,7 +50,6 @@ def aggregate_gpt_module_params() -> Dict[str, np.ndarray]:
 	gpt_agg_params: Dict[str, np.ndarray] = {}
 	for name, values in gpt_params:
 		values = torch.flatten(values).detach().cpu().numpy()
-
 		matched = re.match(MATCH_RULE, name)
 		if matched:
 			agg_name = matched.group(0)
@@ -70,6 +69,7 @@ if __name__ == "__main__":
 	MATCH_RULE: str = r"h\.\d{1,2}"  # Match prefix "h.1" format
 
 	gpt = AutoModel.from_pretrained("gpt2")
+	gpt_config = AutoConfig.from_pretrained("gpt2")
 	gpt_params = gpt.named_parameters()
 	gpt_module_stat_df: pd.DataFrame = pd.DataFrame(columns=GPT_DF_COLS)
 
@@ -115,34 +115,39 @@ if __name__ == "__main__":
 	#
 	# gpt_module_stat_df.to_csv("gpt_module_stat.csv")
 
-	gpt_module_agg_stat_df: pd.DataFrame = pd.DataFrame(columns=GPT_DF_COLS)
-	gpt_agg_params = aggregate_gpt_module_params()
-	for name, values in gpt_agg_params.items():
-		total_num = len(values)
-		pos_cnt, neg_cnt = pos_neg_counts(values)
-		diff = abs(pos_cnt - neg_cnt)
-		diff_ratio = diff / (pos_cnt + neg_cnt)
+	# gpt_module_agg_stat_df: pd.DataFrame = pd.DataFrame(columns=GPT_DF_COLS)
+	# gpt_agg_params = aggregate_gpt_module_params()
+	# for name, values in gpt_agg_params.items():
+	# 	total_num = len(values)
+	# 	pos_cnt, neg_cnt = pos_neg_counts(values)
+	# 	diff = abs(pos_cnt - neg_cnt)
+	# 	diff_ratio = diff / (pos_cnt + neg_cnt)
+	#
+	# 	mean = float(np.mean(values))
+	# 	std = float(np.std(values))
+	#
+	# 	abs_values = np.absolute(values)
+	# 	abs_mean = float(np.mean(abs_values))
+	# 	abs_std = float(np.std(abs_values))
+	#
+	# 	datapoint = {
+	# 		"total_num"  : total_num,
+	# 		"module_name": name,
+	# 		"pos_cnt"    : pos_cnt,
+	# 		"neg_cnt"    : neg_cnt,
+	# 		"diff"       : diff,
+	# 		"diff_ratio" : diff_ratio,
+	# 		"mean"       : mean,
+	# 		"abs_mean"   : abs_mean,
+	# 		"std"        : std,
+	# 		"abs_std"    : abs_std,
+	# 		}
+	# 	datapoint_df = pd.DataFrame([datapoint])
+	# 	gpt_module_agg_stat_df = pd.concat([gpt_module_agg_stat_df, datapoint_df])
+	#
+	# gpt_module_agg_stat_df.to_csv("gpt_module_agg_stat.csv")
 
-		mean = float(np.mean(values))
-		std = float(np.std(values))
+	# for name, module in gpt.named_modules():
+	# 	print(name)
+	# 	print(module, '\n', type(module), '\n')
 
-		abs_values = np.absolute(values)
-		abs_mean = float(np.mean(abs_values))
-		abs_std = float(np.std(abs_values))
-
-		datapoint = {
-			"total_num"  : total_num,
-			"module_name": name,
-			"pos_cnt"    : pos_cnt,
-			"neg_cnt"    : neg_cnt,
-			"diff"       : diff,
-			"diff_ratio" : diff_ratio,
-			"mean"       : mean,
-			"abs_mean"   : abs_mean,
-			"std"        : std,
-			"abs_std"    : abs_std,
-			}
-		datapoint_df = pd.DataFrame([datapoint])
-		gpt_module_agg_stat_df = pd.concat([gpt_module_agg_stat_df, datapoint_df])
-
-	gpt_module_agg_stat_df.to_csv("gpt_module_agg_stat.csv")

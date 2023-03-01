@@ -31,7 +31,6 @@ from typing import Optional
 import datasets
 import torch
 import transformers
-import wandb
 from datasets import load_dataset
 from tokenizers.pre_tokenizers import WhitespaceSplit
 from transformers import (AdamW, AutoConfig, AutoTokenizer, CONFIG_MAPPING, HfArgumentParser,
@@ -39,6 +38,7 @@ from transformers import (AdamW, AutoConfig, AutoTokenizer, CONFIG_MAPPING, HfAr
 from transformers.trainer_utils import get_last_checkpoint
 from transformers.utils.versions import require_version
 
+import wandb
 from modeling_gated_gpt2 import GPT2Model
 from modeling_gpt2_dp import GPT2ForDiagnosticProbing
 from utils import LABEL_DICT, convert_gate_to_mask, transform_dict
@@ -164,6 +164,13 @@ class ModelArguments:
 			        "Artificially specify how to initialize the weights, e.g., init_mean, init_std, etc."
 			},
 		)
+	agg_mod_rand: bool = field(
+		default=False,
+		metadata={
+			"help": "If true, load the architecture of the model only, without pretrained weights."
+			        "Initialize the weights head by head with predetermined parameters, e.g., abs_mean, abs_std, etc."
+			},
+		)
 	init_mean: float = field(
 		default=0.0,
 		metadata={
@@ -188,6 +195,7 @@ class ModelArguments:
 			"help": "Saturated attention mode."
 			},
 		)
+
 
 @dataclass
 class DataTrainingArguments:
@@ -240,7 +248,7 @@ def main():
 
 	# # Post-processing
 	# Pretrained or Randomized
-	if model_args.randomized or model_args.mod_randomized:
+	if model_args.randomized or model_args.mod_randomized or model_args.agg_mod_rand:
 		model_args.gpt2_name_or_path = None
 		model_args.config_name = "gpt2"
 		model_args.tokenizer_name = "gpt2"
@@ -286,6 +294,11 @@ def main():
 			wandb_proj_name = f"Probe-{data_args.task}-DP-MLP-Saturated-Pretrained"
 		group_name = f"Dim{model_args.mlp_dim}-Layer{model_args.mlp_layers}-Epoch{int(training_args.num_train_epochs)}"
 		serial = f"LR{training_args.learning_rate}-Saturated"
+
+	if model_args.agg_mod_rand:
+		wandb_proj_name = f"Probe-{data_args.task}-DP-MLP-AggModRand"
+		group_name = f"Dim{model_args.mlp_dim}-Layer{model_args.mlp_layers}-Epoch{int(training_args.num_train_epochs)}"
+		serial = f"LR{training_args.learning_rate}-AggModRand"
 
 	os.environ["WANDB_PROJECT"] = wandb_proj_name
 	wandb.init(
@@ -427,6 +440,24 @@ def main():
 		n_params = sum(dict((p.data_ptr(), p.numel()) for p in gpt2.parameters()).values())
 		logger.info(f"Training new gpt2 from scratch - Total size={n_params / 2 ** 20:.2f}M params")
 		logger.info(f"Modified weight initialization strategy, mean: {config.init_mean}, std:{config.init_std}")
+	elif model_args.agg_mod_rand:
+		config.agg_mod_rand = True
+		gpt2 = GPT2Model(config)
+		n_params = sum(dict((p.data_ptr(), p.numel()) for p in gpt2.parameters()).values())
+		logger.info(f"Training new gpt2 from scratch - Total size={n_params / 2 ** 20:.2f}M params")
+		logger.info(f"Aggregated modified weight initialization strategy.")
+	# state_dict = gpt2.state_dict()
+	# for name, param in state_dict.items():
+	# 	print(name)
+	# 	flattened_values: torch.Tensor = torch.flatten(param)
+	# 	flattened_values = flattened_values.detach().cpu().numpy()
+	# 	abs_values = np.absolute(flattened_values)
+	# 	mean = float(np.mean(flattened_values))
+	# 	std = float(np.std(flattened_values))
+	# 	abs_mean = float(np.mean(abs_values))
+	# 	abs_std = float(np.std(abs_values))
+	# 	print(f"Mean: {mean}, Std: {std}")
+	# 	print(f"Abs Mean: {abs_mean}, Abs Std: {abs_std}", '\n')
 
 	gpt2.resize_token_embeddings(len(tokenizer))
 

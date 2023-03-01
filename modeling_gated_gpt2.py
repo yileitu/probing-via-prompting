@@ -16,9 +16,11 @@
 """PyTorch OpenAI GPT-2 model."""
 
 import os
+import re
 from dataclasses import dataclass
 from typing import Optional, Tuple
 
+import pandas as pd
 import torch
 import torch.utils.checkpoint
 from torch import nn
@@ -39,7 +41,7 @@ from transformers.modeling_utils import (
 from transformers.utils import logging
 from transformers.utils.model_parallel_utils import assert_device_map, get_device_map
 
-from utils import STEFunction, hardmax
+from utils import STEFunction, bimodal_normal, hardmax
 
 logger = logging.get_logger(__name__)
 
@@ -630,11 +632,59 @@ class GPT2Model(GPT2PreTrainedModel):
 		self.h = nn.ModuleList([GPT2Block(config) for _ in range(config.num_hidden_layers)])
 		self.ln_f = nn.LayerNorm(self.embed_dim, eps=config.layer_norm_epsilon)
 
-		self.init_weights()
+		if self.config.agg_mod_rand:
+			self.init_weights_agg_mod()
+		else:
+			self.init_weights()
 
 		# Model parallel
 		self.model_parallel = False
 		self.device_map = None
+
+	def init_weights_agg_mod(self):
+		"""
+		Initialize the weights with custom values.
+		"""
+		print("Execute init_weights_agg_mod()")
+		MATCH_RULE: str = r"h\.\d{1,2}"  # Match prefix "h.1" format
+		weights_df = pd.read_csv("gpt_module_agg_stat.csv")
+
+		for name, module in self.named_modules():
+			matched = re.match(MATCH_RULE, name)
+			if matched:
+				agg_name = matched.group(0)
+				head_mean = weights_df[weights_df['module_name'] == agg_name]['abs_mean'].values[0]
+				head_std = weights_df[weights_df['module_name'] == agg_name]['abs_std'].values[0]
+				# print("Module: {}, Abs Mean: {}, Abs Std: {}".format(agg_name, head_mean, head_std))
+				if isinstance(module, (nn.Linear, Conv1D)):
+					bimodal_normal(x=module.weight.data, mu=head_mean, sigma=head_std)
+					if module.bias is not None:
+						bimodal_normal(x=module.bias.data, mu=head_mean, sigma=head_std)
+				elif isinstance(module, nn.LayerNorm):
+					bimodal_normal(x=module.weight.data, mu=head_mean, sigma=head_std)
+					bimodal_normal(x=module.bias.data, mu=head_mean, sigma=head_std)
+			else:
+				if name == 'wte' or name == 'wpe':
+					if name == 'wte':
+						mean = weights_df[weights_df['module_name'] == 'wte.weight']['abs_mean'].values[0]
+						std = weights_df[weights_df['module_name'] == 'wte.weight']['abs_std'].values[0]
+					elif name == 'wpe':
+						mean = weights_df[weights_df['module_name'] == 'wpe.weight']['abs_mean'].values[0]
+						std = weights_df[weights_df['module_name'] == 'wpe.weight']['abs_std'].values[0]
+					else:
+						raise ValueError("Unknown module name: {}".format(name))
+					bimodal_normal(x=module.weight.data, mu=mean, sigma=std)
+					if module.padding_idx is not None:
+						module.weight.data[module.padding_idx].zero_()
+				elif name == 'ln_f':
+					bias_mean = weights_df[weights_df['module_name'] == 'ln_f.bias']['abs_mean'].values[0]
+					bias_std = weights_df[weights_df['module_name'] == 'ln_f.bias']['abs_std'].values[0]
+					bimodal_normal(x=module.bias.data, mu=bias_mean, sigma=bias_std)
+
+					# NOTE: ln_f.weight is not symmetric, so we don't flip the sign
+					weight_mean = weights_df[weights_df['module_name'] == 'ln_f.weight']['abs_mean'].values[0]
+					weight_std = weights_df[weights_df['module_name'] == 'ln_f.weight']['abs_std'].values[0]
+					module.weight.data.normal_(mean=weight_mean, std=weight_std)
 
 	@add_start_docstrings(PARALLELIZE_DOCSTRING)
 	def parallelize(self, device_map=None):
@@ -967,12 +1017,12 @@ class GatedGPT2LMHeadModel(GPT2PreTrainedModel):
 		else:
 			position_ids = None
 		return {
-			"input_ids"      : input_ids,
+			"input_ids": input_ids,
 			"past_key_values": past,
-			"use_cache"      : kwargs.get("use_cache"),
-			"position_ids"   : position_ids,
-			"attention_mask" : attention_mask,
-			"token_type_ids" : token_type_ids,
+			"use_cache": kwargs.get("use_cache"),
+			"position_ids": position_ids,
+			"attention_mask": attention_mask,
+			"token_type_ids": token_type_ids,
 			}
 
 	@add_start_docstrings_to_model_forward(GPT2_INPUTS_DOCSTRING)

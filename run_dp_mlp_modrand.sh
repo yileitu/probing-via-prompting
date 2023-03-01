@@ -30,9 +30,9 @@ python3 run_dp.py \
   --dev \
   --fp16 \
   --init_mean 0.0 \
-  --init_std 5e-2 \
+  --init_std 0.02 \
   --num_train_epochs 256 \
-  --learning_rate 5e-4 \
+  --learning_rate 1e-4 \
   --mod_randomized \
   --mlp_dim 512 \
   --mlp_layers 16 \
