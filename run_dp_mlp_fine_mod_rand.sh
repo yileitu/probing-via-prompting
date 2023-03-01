@@ -28,9 +28,8 @@ python3 run_dp.py \
   --mlp_dropout 0.0 \
   --weight_decay 0.0 \
   --dev \
-  --fp16 \
   --num_train_epochs 16 \
   --learning_rate 5e-2 \
-  --agg_mod_rand \
+  --fine_mod_rand \
   --mlp_dim 512 \
   --mlp_layers 64 \

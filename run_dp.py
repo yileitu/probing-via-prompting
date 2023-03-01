@@ -171,6 +171,13 @@ class ModelArguments:
 			        "Initialize the weights head by head with predetermined parameters, e.g., abs_mean, abs_std, etc."
 			},
 		)
+	fine_mod_rand: bool = field(
+		default=False,
+		metadata={
+			"help": "If true, load the architecture of the model only, without pretrained weights."
+			        "Initialize the weights module by module with predetermined parameters, e.g., abs_mean, abs_std, etc."
+			},
+		)
 	init_mean: float = field(
 		default=0.0,
 		metadata={
@@ -248,7 +255,7 @@ def main():
 
 	# # Post-processing
 	# Pretrained or Randomized
-	if model_args.randomized or model_args.mod_randomized or model_args.agg_mod_rand:
+	if model_args.randomized or model_args.mod_randomized or model_args.agg_mod_rand or model_args.fine_mod_rand:
 		model_args.gpt2_name_or_path = None
 		model_args.config_name = "gpt2"
 		model_args.tokenizer_name = "gpt2"
@@ -279,7 +286,7 @@ def main():
 	if model_args.mod_randomized:
 		wandb_proj_name += "-ModRand"
 
-	# TODO: 写得不优美，先用verbose代替处理如何控制wandb分组
+	# CONCERN: 写得不优美，先用verbose代替处理如何控制wandb分组
 	if model_args.verbose == 1 and model_args.mod_randomized:
 		wandb_proj_name = f"Probe-{data_args.task}-DP-MLP-ModRand-Mean{model_args.init_mean}-Std{model_args.init_std}"
 		group_name = f"Dim{model_args.mlp_dim}-Layer{model_args.mlp_layers}-Epoch{int(training_args.num_train_epochs)}"
@@ -299,6 +306,11 @@ def main():
 		wandb_proj_name = f"Probe-{data_args.task}-DP-MLP-AggModRand"
 		group_name = f"Dim{model_args.mlp_dim}-Layer{model_args.mlp_layers}-Epoch{int(training_args.num_train_epochs)}"
 		serial = f"LR{training_args.learning_rate}-AggModRand"
+	if model_args.fine_mod_rand:
+		wandb_proj_name = f"Probe-{data_args.task}-DP-MLP-FineModRand"
+		group_name = f"Dim{model_args.mlp_dim}-Layer{model_args.mlp_layers}-Epoch{int(training_args.num_train_epochs)}"
+		serial = f"LR{training_args.learning_rate}-FineModRand"
+
 
 	os.environ["WANDB_PROJECT"] = wandb_proj_name
 	wandb.init(
@@ -446,18 +458,26 @@ def main():
 		n_params = sum(dict((p.data_ptr(), p.numel()) for p in gpt2.parameters()).values())
 		logger.info(f"Training new gpt2 from scratch - Total size={n_params / 2 ** 20:.2f}M params")
 		logger.info(f"Aggregated modified weight initialization strategy.")
-	# state_dict = gpt2.state_dict()
-	# for name, param in state_dict.items():
-	# 	print(name)
-	# 	flattened_values: torch.Tensor = torch.flatten(param)
-	# 	flattened_values = flattened_values.detach().cpu().numpy()
-	# 	abs_values = np.absolute(flattened_values)
-	# 	mean = float(np.mean(flattened_values))
-	# 	std = float(np.std(flattened_values))
-	# 	abs_mean = float(np.mean(abs_values))
-	# 	abs_std = float(np.std(abs_values))
-	# 	print(f"Mean: {mean}, Std: {std}")
-	# 	print(f"Abs Mean: {abs_mean}, Abs Std: {abs_std}", '\n')
+	elif model_args.fine_mod_rand:
+		config.fine_mod_rand = True
+		gpt2 = GPT2Model(config)
+		n_params = sum(dict((p.data_ptr(), p.numel()) for p in gpt2.parameters()).values())
+		logger.info(f"Training new gpt2 from scratch - Total size={n_params / 2 ** 20:.2f}M params")
+		logger.info(f"Fine modified weight initialization strategy.")
+
+		# import numpy as np
+		# state_dict = gpt2.state_dict()
+		# for name, param in state_dict.items():
+		# 	print(name)
+		# 	flattened_values: torch.Tensor = torch.flatten(param)
+		# 	flattened_values = flattened_values.detach().cpu().numpy()
+		# 	abs_values = np.absolute(flattened_values)
+		# 	mean = float(np.mean(flattened_values))
+		# 	std = float(np.std(flattened_values))
+		# 	abs_mean = float(np.mean(abs_values))
+		# 	abs_std = float(np.std(abs_values))
+		# 	print(f"Mean: {mean}, Std: {std}")
+		# 	print(f"Abs Mean: {abs_mean}, Abs Std: {abs_std}", '\n')
 
 	gpt2.resize_token_embeddings(len(tokenizer))
 

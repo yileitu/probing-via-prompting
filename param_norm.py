@@ -151,3 +151,14 @@ if __name__ == "__main__":
 	# 	print(name)
 	# 	print(module, '\n', type(module), '\n')
 
+	# weights_df = pd.read_csv("gpt_module_stat.csv")
+	# module_name = "h.11.mlp.dropout"
+	# weight_name = module_name + ".weight"
+	# print(weight_name)
+	# head_mean = weights_df[weights_df['module_name'] == weight_name]['abs_mean'].values
+	# print(head_mean, type(head_mean))
+
+	from transformers import GPT2Config
+	config = GPT2Config()
+	has_field = hasattr(config, "n_embd")
+	print(has_field)  # True
