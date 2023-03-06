@@ -1,6 +1,7 @@
-from typing import Any, Dict
+from typing import Any, Dict, List
 
 import torch
+from torch import Tensor
 
 LABEL_DICT = {}
 LABEL_DICT['ner'] = ['CARDINAL', 'DATE', 'EVENT', 'FAC', 'GPE', 'LANGUAGE',
@@ -115,6 +116,7 @@ def bimodal_normal(x: torch.Tensor, mu: float, sigma: float) -> None:
 	mask = torch.randint(0, 2, size=size) * 2 - 1  # Randomly flip half the values to their opposite sign
 	x *= mask
 
+
 # pre_x = [[-10, 2, 2, 2], [-100, 1, 0, 1]]
 # X = torch.Tensor(pre_x)
 # print(hardmax(X))
@@ -126,3 +128,12 @@ def bimodal_normal(x: torch.Tensor, mu: float, sigma: float) -> None:
 # 		X = torch.Tensor(pre_x)
 # 		print(X)
 # 		print(hardmax2(X), '\n')
+
+
+def word_to_one_hot(word: str, vocab: List[str]) -> Tensor:
+	"""Convert a word to a one-hot encoding."""
+	one_hot = torch.zeros(len(vocab))
+	if word in vocab:
+		idx = vocab.index(word)
+		one_hot[idx] = 1
+	return one_hot

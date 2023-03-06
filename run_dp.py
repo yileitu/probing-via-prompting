@@ -465,19 +465,19 @@ def main():
 		logger.info(f"Training new gpt2 from scratch - Total size={n_params / 2 ** 20:.2f}M params")
 		logger.info(f"Fine modified weight initialization strategy.")
 
-		# import numpy as np
-		# state_dict = gpt2.state_dict()
-		# for name, param in state_dict.items():
-		# 	print(name)
-		# 	flattened_values: torch.Tensor = torch.flatten(param)
-		# 	flattened_values = flattened_values.detach().cpu().numpy()
-		# 	abs_values = np.absolute(flattened_values)
-		# 	mean = float(np.mean(flattened_values))
-		# 	std = float(np.std(flattened_values))
-		# 	abs_mean = float(np.mean(abs_values))
-		# 	abs_std = float(np.std(abs_values))
-		# 	print(f"Mean: {mean}, Std: {std}")
-		# 	print(f"Abs Mean: {abs_mean}, Abs Std: {abs_std}", '\n')
+		import numpy as np
+		state_dict = gpt2.state_dict()
+		for name, param in state_dict.items():
+			print(name)
+			flattened_values: torch.Tensor = torch.flatten(param)
+			flattened_values = flattened_values.detach().cpu().numpy()
+			abs_values = np.absolute(flattened_values)
+			mean = float(np.mean(flattened_values))
+			std = float(np.std(flattened_values))
+			abs_mean = float(np.mean(abs_values))
+			abs_std = float(np.std(abs_values))
+			print(f"Mean: {mean}, Std: {std}")
+			print(f"Abs Mean: {abs_mean}, Abs Std: {abs_std}", '\n')
 
 	gpt2.resize_token_embeddings(len(tokenizer))
 

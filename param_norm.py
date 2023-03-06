@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import re
 from math import sqrt
 from typing import Dict, Iterable, List, Tuple
@@ -158,7 +159,7 @@ if __name__ == "__main__":
 	# head_mean = weights_df[weights_df['module_name'] == weight_name]['abs_mean'].values
 	# print(head_mean, type(head_mean))
 
-	from transformers import GPT2Config
-	config = GPT2Config()
-	has_field = hasattr(config, "n_embd")
-	print(has_field)  # True
+	# from transformers import GPT2Config
+	# config = GPT2Config()
+	# has_field = hasattr(config, "n_embd")
+	# print(has_field)  # True
