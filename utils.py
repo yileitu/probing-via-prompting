@@ -1,7 +1,6 @@
-from typing import Any, Dict, List
+from typing import Any, Dict
 
 import torch
-from torch import Tensor
 
 LABEL_DICT = {}
 LABEL_DICT['ner'] = ['CARDINAL', 'DATE', 'EVENT', 'FAC', 'GPE', 'LANGUAGE',
@@ -103,20 +102,7 @@ def hardmax(X):
 	return A
 
 
-def bimodal_normal(x: torch.Tensor, mu: float, sigma: float) -> None:
-	"""
-	Inits the weights (in-place) with the bimodal normal distribution (symmetric).
-
-	:param x: input tensor
-	:param mu: mean of the normal distribution
-	:param sigma: standard deviation of the normal distribution
-	"""
-	size = x.size()
-	x.normal_(mean=mu, std=sigma)
-	mask = torch.randint(0, 2, size=size) * 2 - 1  # Randomly flip half the values to their opposite sign
-	x *= mask
-
-
+# To test hardmax functions
 # pre_x = [[-10, 2, 2, 2], [-100, 1, 0, 1]]
 # X = torch.Tensor(pre_x)
 # print(hardmax(X))
@@ -130,10 +116,15 @@ def bimodal_normal(x: torch.Tensor, mu: float, sigma: float) -> None:
 # 		print(hardmax2(X), '\n')
 
 
-def word_to_one_hot(word: str, vocab: List[str]) -> Tensor:
-	"""Convert a word to a one-hot encoding."""
-	one_hot = torch.zeros(len(vocab))
-	if word in vocab:
-		idx = vocab.index(word)
-		one_hot[idx] = 1
-	return one_hot
+def bimodal_normal(x: torch.Tensor, mu: float, sigma: float) -> None:
+	"""
+	Inits the weights (in-place) with the bimodal normal distribution (symmetric).
+
+	:param x: input tensor
+	:param mu: mean of the normal distribution
+	:param sigma: standard deviation of the normal distribution
+	"""
+	x.normal_(mean=mu, std=sigma)
+	# size = x.size()
+	# mask = torch.randint(0, 2, size=size) * 2 - 1  # Randomly flip half the values to their opposite sign
+	# x *= mask

@@ -649,14 +649,16 @@ class GPT2Model(GPT2PreTrainedModel):
 		"""
 		print("Execute init_weights_agg_mod()")
 		MATCH_RULE: str = r"h\.\d{1,2}"  # Match prefix "h.1" format
+		MEAN_COL_NAME: str = "mean"
+		STD_COL_NAME: str = "std"
 		weights_df = pd.read_csv("gpt_module_agg_stat.csv")
 
 		for name, module in self.named_modules():
 			matched = re.match(MATCH_RULE, name)
 			if matched:
 				agg_name = matched.group(0)
-				head_mean = weights_df[weights_df['module_name'] == agg_name]['abs_mean'].values[0]
-				head_std = weights_df[weights_df['module_name'] == agg_name]['abs_std'].values[0]
+				head_mean = weights_df[weights_df['module_name'] == agg_name][MEAN_COL_NAME].values[0]
+				head_std = weights_df[weights_df['module_name'] == agg_name][STD_COL_NAME].values[0]
 				# print("Module: {}, Abs Mean: {}, Abs Std: {}".format(agg_name, head_mean, head_std))
 				if isinstance(module, (nn.Linear, Conv1D)):
 					bimodal_normal(x=module.weight.data, mu=head_mean, sigma=head_std)
@@ -668,24 +670,24 @@ class GPT2Model(GPT2PreTrainedModel):
 			else:
 				if name == 'wte' or name == 'wpe':
 					if name == 'wte':
-						mean = weights_df[weights_df['module_name'] == 'wte.weight']['abs_mean'].values[0]
-						std = weights_df[weights_df['module_name'] == 'wte.weight']['abs_std'].values[0]
+						mean = weights_df[weights_df['module_name'] == 'wte.weight'][MEAN_COL_NAME].values[0]
+						std = weights_df[weights_df['module_name'] == 'wte.weight'][STD_COL_NAME].values[0]
 					elif name == 'wpe':
-						mean = weights_df[weights_df['module_name'] == 'wpe.weight']['abs_mean'].values[0]
-						std = weights_df[weights_df['module_name'] == 'wpe.weight']['abs_std'].values[0]
+						mean = weights_df[weights_df['module_name'] == 'wpe.weight'][MEAN_COL_NAME].values[0]
+						std = weights_df[weights_df['module_name'] == 'wpe.weight'][STD_COL_NAME].values[0]
 					else:
 						raise ValueError("Unknown module name: {}".format(name))
 					bimodal_normal(x=module.weight.data, mu=mean, sigma=std)
 					if module.padding_idx is not None:
 						module.weight.data[module.padding_idx].zero_()
 				elif name == 'ln_f':
-					bias_mean = weights_df[weights_df['module_name'] == 'ln_f.bias']['abs_mean'].values[0]
-					bias_std = weights_df[weights_df['module_name'] == 'ln_f.bias']['abs_std'].values[0]
+					bias_mean = weights_df[weights_df['module_name'] == 'ln_f.bias'][MEAN_COL_NAME].values[0]
+					bias_std = weights_df[weights_df['module_name'] == 'ln_f.bias'][STD_COL_NAME].values[0]
 					bimodal_normal(x=module.bias.data, mu=bias_mean, sigma=bias_std)
 
 					# NOTE: ln_f.weight is not symmetric, so we don't flip the sign
-					weight_mean = weights_df[weights_df['module_name'] == 'ln_f.weight']['abs_mean'].values[0]
-					weight_std = weights_df[weights_df['module_name'] == 'ln_f.weight']['abs_std'].values[0]
+					weight_mean = weights_df[weights_df['module_name'] == 'ln_f.weight'][MEAN_COL_NAME].values[0]
+					weight_std = weights_df[weights_df['module_name'] == 'ln_f.weight'][STD_COL_NAME].values[0]
 					module.weight.data.normal_(mean=weight_mean, std=weight_std)
 
 	def init_weights_fine_mod(self):
@@ -693,49 +695,51 @@ class GPT2Model(GPT2PreTrainedModel):
 		Initialize the weights with custom values module by module.
 		"""
 		print("Execute init_weights_fine_mod()")
+		MEAN_COL_NAME: str = "mean"
+		STD_COL_NAME: str = "std"
 		weights_df = pd.read_csv("gpt_module_stat.csv")
 
 		for name, module in self.named_modules():
 			if name == 'wte' or name == 'wpe':
 				if name == 'wte':
-					mean = weights_df[weights_df['module_name'] == 'wte.weight']['abs_mean'].values[0]
-					std = weights_df[weights_df['module_name'] == 'wte.weight']['abs_std'].values[0]
+					mean = weights_df[weights_df['module_name'] == 'wte.weight'][MEAN_COL_NAME].values[0]
+					std = weights_df[weights_df['module_name'] == 'wte.weight'][STD_COL_NAME].values[0]
 				elif name == 'wpe':
-					mean = weights_df[weights_df['module_name'] == 'wpe.weight']['abs_mean'].values[0]
-					std = weights_df[weights_df['module_name'] == 'wpe.weight']['abs_std'].values[0]
+					mean = weights_df[weights_df['module_name'] == 'wpe.weight'][MEAN_COL_NAME].values[0]
+					std = weights_df[weights_df['module_name'] == 'wpe.weight'][STD_COL_NAME].values[0]
 				else:
 					raise ValueError("Unknown module name: {}".format(name))
 				bimodal_normal(x=module.weight.data, mu=mean, sigma=std)
 				if module.padding_idx is not None:
 					module.weight.data[module.padding_idx].zero_()
 			elif name == 'ln_f':
-				bias_mean = weights_df[weights_df['module_name'] == 'ln_f.bias']['abs_mean'].values[0]
-				bias_std = weights_df[weights_df['module_name'] == 'ln_f.bias']['abs_std'].values[0]
+				bias_mean = weights_df[weights_df['module_name'] == 'ln_f.bias'][MEAN_COL_NAME].values[0]
+				bias_std = weights_df[weights_df['module_name'] == 'ln_f.bias'][STD_COL_NAME].values[0]
 				bimodal_normal(x=module.bias.data, mu=bias_mean, sigma=bias_std)
 
 				# NOTE: Weights of LayerNorm are not symmetric, so we don't flip the sign
-				weight_mean = weights_df[weights_df['module_name'] == 'ln_f.weight']['abs_mean'].values[0]
-				weight_std = weights_df[weights_df['module_name'] == 'ln_f.weight']['abs_std'].values[0]
+				weight_mean = weights_df[weights_df['module_name'] == 'ln_f.weight'][MEAN_COL_NAME].values[0]
+				weight_std = weights_df[weights_df['module_name'] == 'ln_f.weight'][STD_COL_NAME].values[0]
 				module.weight.data.normal_(mean=weight_mean, std=weight_std)
 			else:
 				weight_name = name + ".weight"
 				bias_name = name + ".bias"
 				if isinstance(module, (nn.Linear, Conv1D)):
-					weight_mean = weights_df[weights_df['module_name'] == weight_name]['abs_mean'].values[0]
-					weight_std = weights_df[weights_df['module_name'] == weight_name]['abs_std'].values[0]
+					weight_mean = weights_df[weights_df['module_name'] == weight_name][MEAN_COL_NAME].values[0]
+					weight_std = weights_df[weights_df['module_name'] == weight_name][STD_COL_NAME].values[0]
 					bimodal_normal(x=module.weight.data, mu=weight_mean, sigma=weight_std)
 					if module.bias is not None:
-						bias_mean = weights_df[weights_df['module_name'] == bias_name]['abs_mean'].values[0]
-						bias_std = weights_df[weights_df['module_name'] == bias_name]['abs_std'].values[0]
+						bias_mean = weights_df[weights_df['module_name'] == bias_name][MEAN_COL_NAME].values[0]
+						bias_std = weights_df[weights_df['module_name'] == bias_name][STD_COL_NAME].values[0]
 						bimodal_normal(x=module.bias.data, mu=bias_mean, sigma=bias_std)
 				elif isinstance(module, nn.LayerNorm):
 					# NOTE: Weights of LayerNorm are not symmetric, so we don't flip the sign
-					weight_mean = weights_df[weights_df['module_name'] == weight_name]['abs_mean'].values[0]
-					weight_std = weights_df[weights_df['module_name'] == weight_name]['abs_std'].values[0]
+					weight_mean = weights_df[weights_df['module_name'] == weight_name][MEAN_COL_NAME].values[0]
+					weight_std = weights_df[weights_df['module_name'] == weight_name][STD_COL_NAME].values[0]
 					module.weight.data.normal_(mean=weight_mean, std=weight_std)
 
-					bias_mean = weights_df[weights_df['module_name'] == bias_name]['abs_mean'].values[0]
-					bias_std = weights_df[weights_df['module_name'] == bias_name]['abs_std'].values[0]
+					bias_mean = weights_df[weights_df['module_name'] == bias_name][MEAN_COL_NAME].values[0]
+					bias_std = weights_df[weights_df['module_name'] == bias_name][STD_COL_NAME].values[0]
 					bimodal_normal(x=module.bias.data, mu=bias_mean, sigma=bias_std)
 
 	@add_start_docstrings(PARALLELIZE_DOCSTRING)

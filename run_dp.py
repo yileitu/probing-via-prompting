@@ -303,14 +303,13 @@ def main():
 		serial = f"LR{training_args.learning_rate}-Saturated"
 
 	if model_args.agg_mod_rand:
-		wandb_proj_name = f"Probe-{data_args.task}-DP-MLP-AggModRand"
+		wandb_proj_name = f"Probe-{data_args.task}-DP-MLP-AggModRand-Normal"
 		group_name = f"Dim{model_args.mlp_dim}-Layer{model_args.mlp_layers}-Epoch{int(training_args.num_train_epochs)}"
 		serial = f"LR{training_args.learning_rate}-AggModRand"
 	if model_args.fine_mod_rand:
-		wandb_proj_name = f"Probe-{data_args.task}-DP-MLP-FineModRand"
+		wandb_proj_name = f"Probe-{data_args.task}-DP-MLP-FineModRand-Normal"
 		group_name = f"Dim{model_args.mlp_dim}-Layer{model_args.mlp_layers}-Epoch{int(training_args.num_train_epochs)}"
 		serial = f"LR{training_args.learning_rate}-FineModRand"
-
 
 	os.environ["WANDB_PROJECT"] = wandb_proj_name
 	wandb.init(
