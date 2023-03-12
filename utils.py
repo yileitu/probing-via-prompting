@@ -125,6 +125,19 @@ def bimodal_normal(x: torch.Tensor, mu: float, sigma: float) -> None:
 	:param sigma: standard deviation of the normal distribution
 	"""
 	x.normal_(mean=mu, std=sigma)
-	# size = x.size()
-	# mask = torch.randint(0, 2, size=size) * 2 - 1  # Randomly flip half the values to their opposite sign
-	# x *= mask
+
+
+# size = x.size()
+# mask = torch.randint(0, 2, size=size) * 2 - 1  # Randomly flip half the values to their opposite sign
+# x *= mask
+
+
+def rescale_norm(x: torch.Tensor, norm: float) -> torch.Tensor:
+	"""
+	Rescales the input tensor (in-place) to have the specified norm.
+
+	:param x: input tensor
+	:param norm: norm to rescale to
+	"""
+	return x / torch.norm(x) * norm
+

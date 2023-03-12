@@ -41,7 +41,7 @@ from transformers.modeling_utils import (
 from transformers.utils import logging
 from transformers.utils.model_parallel_utils import assert_device_map, get_device_map
 
-from utils import STEFunction, bimodal_normal, hardmax
+from utils import STEFunction, bimodal_normal, hardmax, rescale_norm
 
 logger = logging.get_logger(__name__)
 
@@ -636,6 +636,8 @@ class GPT2Model(GPT2PreTrainedModel):
 			self.init_weights_agg_mod()
 		elif hasattr(self.config, "fine_mod_rand") and self.config.fine_mod_rand:
 			self.init_weights_fine_mod()
+		elif hasattr(self.config, "norm_mod_rand") and self.config.norm_mod_rand:
+			self.init_weights_norm_mod()
 		else:
 			self.init_weights()
 
@@ -741,6 +743,48 @@ class GPT2Model(GPT2PreTrainedModel):
 					bias_mean = weights_df[weights_df['module_name'] == bias_name][MEAN_COL_NAME].values[0]
 					bias_std = weights_df[weights_df['module_name'] == bias_name][STD_COL_NAME].values[0]
 					bimodal_normal(x=module.bias.data, mu=bias_mean, sigma=bias_std)
+
+	def init_weights_norm_mod(self):
+		print("Execute init_weights_norm_mod()")
+		norm_df = pd.read_csv("gpt_module_norm.csv")
+
+		for name, module in self.named_modules():
+			if name == 'wte' or name == 'wpe':
+				if name == 'wte':
+					norm = norm_df[norm_df['module_name'] == 'wte.weight']["norm"].values[0]
+				elif name == 'wpe':
+					norm = norm_df[norm_df['module_name'] == 'wpe.weight']["norm"].values[0]
+				else:
+					raise ValueError("Unknown module name: {}".format(name))
+				module.weight.data.normal_(mean=0.0, std=self.config.initializer_range)
+				module.weight.data = rescale_norm(module.weight.data, norm)
+				if module.padding_idx is not None:
+					module.weight.data[module.padding_idx].zero_()
+			elif name == 'ln_f':
+				weight_norm = norm_df[norm_df['module_name'] == 'ln_f.weight']["norm"].values[0]
+				bias_norm = norm_df[norm_df['module_name'] == 'ln_f.bias']["norm"].values[0]
+				module.weight.data.normal_(mean=0.0, std=self.config.initializer_range)
+				module.bias.data.normal_(mean=0.0, std=self.config.initializer_range)
+				module.weight.data = rescale_norm(module.weight.data, weight_norm)
+				module.bias.data = rescale_norm(module.bias.data, bias_norm)
+			else:
+				weight_name = name + ".weight"
+				bias_name = name + ".bias"
+				if isinstance(module, (nn.Linear, Conv1D)):
+					weight_norm = norm_df[norm_df['module_name'] == weight_name]["norm"].values[0]
+					module.weight.data.normal_(mean=0.0, std=self.config.initializer_range)
+					module.weight.data = rescale_norm(module.weight.data, weight_norm)
+					if module.bias is not None:
+						bias_norm = norm_df[norm_df['module_name'] == bias_name]["norm"].values[0]
+						module.bias.data.normal_(mean=0.0, std=self.config.initializer_range)
+						module.bias.data = rescale_norm(module.bias.data, bias_norm)
+				elif isinstance(module, nn.LayerNorm):
+					weight_norm = norm_df[norm_df['module_name'] == weight_name]["norm"].values[0]
+					bias_norm = norm_df[norm_df['module_name'] == bias_name]["norm"].values[0]
+					module.weight.data.normal_(mean=0.0, std=self.config.initializer_range)
+					module.bias.data.normal_(mean=0.0, std=self.config.initializer_range)
+					module.weight.data = rescale_norm(module.weight.data, weight_norm)
+					module.bias.data = rescale_norm(module.bias.data, bias_norm)
 
 	@add_start_docstrings(PARALLELIZE_DOCSTRING)
 	def parallelize(self, device_map=None):

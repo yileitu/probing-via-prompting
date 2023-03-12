@@ -30,7 +30,7 @@ python3 run_dp.py \
   --dev \
   --fp16 \
   --num_train_epochs 256 \
-  --learning_rate 5e-5 \
+  --learning_rate 5e-4 \
   --agg_mod_rand \
   --mlp_dim 512 \
-  --mlp_layers 32 \
+  --mlp_layers 64 \

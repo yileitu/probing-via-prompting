@@ -178,6 +178,13 @@ class ModelArguments:
 			        "Initialize the weights module by module with predetermined parameters, e.g., abs_mean, abs_std, etc."
 			},
 		)
+	norm_mod_rand: bool = field(
+		default=False,
+		metadata={
+			"help": "If true, load the architecture of the model only, without pretrained weights."
+			        "Initialize the weights module by module with specified norm."
+			},
+		)
 	init_mean: float = field(
 		default=0.0,
 		metadata={
@@ -255,7 +262,8 @@ def main():
 
 	# # Post-processing
 	# Pretrained or Randomized
-	if model_args.randomized or model_args.mod_randomized or model_args.agg_mod_rand or model_args.fine_mod_rand:
+	if model_args.randomized or model_args.mod_randomized or model_args.agg_mod_rand or model_args.fine_mod_rand \
+			or model_args.norm_mod_rand:
 		model_args.gpt2_name_or_path = None
 		model_args.config_name = "gpt2"
 		model_args.tokenizer_name = "gpt2"
@@ -310,6 +318,10 @@ def main():
 		wandb_proj_name = f"Probe-{data_args.task}-DP-MLP-FineModRand-Normal"
 		group_name = f"Dim{model_args.mlp_dim}-Layer{model_args.mlp_layers}-Epoch{int(training_args.num_train_epochs)}"
 		serial = f"LR{training_args.learning_rate}-FineModRand"
+	if model_args.norm_mod_rand:
+		wandb_proj_name = f"Probe-{data_args.task}-DP-MLP-NormModRand"
+		group_name = f"Dim{model_args.mlp_dim}-Layer{model_args.mlp_layers}-Epoch{int(training_args.num_train_epochs)}"
+		serial = f"LR{training_args.learning_rate}-NormModRand"
 
 	os.environ["WANDB_PROJECT"] = wandb_proj_name
 	wandb.init(
@@ -477,6 +489,20 @@ def main():
 			abs_std = float(np.std(abs_values))
 			print(f"Mean: {mean}, Std: {std}")
 			print(f"Abs Mean: {abs_mean}, Abs Std: {abs_std}", '\n')
+
+	elif model_args.norm_mod_rand:
+		config.norm_mod_rand = True
+		gpt2 = GPT2Model(config)
+		n_params = sum(dict((p.data_ptr(), p.numel()) for p in gpt2.parameters()).values())
+		logger.info(f"Training new gpt2 from scratch - Total size={n_params / 2 ** 20:.2f}M params")
+		logger.info(f"Norm modified weight initialization strategy.")
+
+		# import numpy as np
+		# state_dict = gpt2.state_dict()
+		# for name, param in state_dict.items():
+		# 	print(name)
+		# 	norm = torch.norm(param)
+		# 	print(f"Norm: {norm}")
 
 	gpt2.resize_token_embeddings(len(tokenizer))
 

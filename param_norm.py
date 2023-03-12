@@ -65,8 +65,8 @@ def aggregate_gpt_module_params() -> Dict[str, np.ndarray]:
 
 
 if __name__ == "__main__":
-	GPT_DF_COLS: List[str] = ["module_name", "total_num", "pos_cnt", "neg_cnt", "diff", "diff_ratio", "mean", "abs_mean", "std",
-	                          "abs_std"]
+	# GPT_DF_COLS: List[str] = ["module_name", "total_num", "pos_cnt", "neg_cnt", "diff", "diff_ratio", "mean", "abs_mean", "std", "abs_std"]
+	GPT_DF_COLS: List[str] = ["module_name", "norm"]
 	MATCH_RULE: str = r"h\.\d{1,2}"  # Match prefix "h.1" format
 
 	gpt = AutoModel.from_pretrained("gpt2")
@@ -163,3 +163,15 @@ if __name__ == "__main__":
 	# config = GPT2Config()
 	# has_field = hasattr(config, "n_embd")
 	# print(has_field)  # True
+
+	for name, values in gpt_params:
+		norm = torch.norm(values).item()
+		datapoint = {
+			"module_name": name,
+			"norm"       : norm,
+			}
+		datapoint_df = pd.DataFrame([datapoint])
+		gpt_module_stat_df = pd.concat([gpt_module_stat_df, datapoint_df])
+
+	gpt_module_stat_df.to_csv("gpt_module_norm.csv")
+

@@ -146,6 +146,7 @@ class GPT2ForDiagnosticProbing(GPT2PreTrainedModel):
 			return_dict=True,
 			)
 		if not self.use_mlp:
+			# TODO:
 			contextual_embeddings = transformer_outputs[0]
 		else:
 			all_hidden_states = transformer_outputs.hidden_states[1:]
