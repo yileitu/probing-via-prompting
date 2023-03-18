@@ -200,7 +200,10 @@ class GPT2Attention(nn.Module):
 
 		self.head_mask = None
 
-		self.saturated: bool = config.saturated
+		if hasattr(config, "saturated"):
+			self.saturated: bool = config.saturated
+		else:
+			self.saturated: bool = False
 
 	def prune_heads(self, heads):
 		if len(heads) == 0:

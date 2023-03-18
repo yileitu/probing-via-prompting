@@ -29,12 +29,15 @@ from dataclasses import asdict, dataclass, field
 from typing import Optional
 
 import datasets
+import pandas as pd
 import torch
 import transformers
 from datasets import load_dataset
 from tokenizers.pre_tokenizers import WhitespaceSplit
 from transformers import (AdamW, AutoConfig, AutoTokenizer, CONFIG_MAPPING, HfArgumentParser,
-                          MODEL_FOR_CAUSAL_LM_MAPPING, Trainer, TrainingArguments, default_data_collator, set_seed)
+                          MODEL_FOR_CAUSAL_LM_MAPPING, Trainer, TrainerCallback, TrainerControl, TrainerState,
+                          TrainingArguments,
+                          default_data_collator, set_seed)
 from transformers.trainer_utils import get_last_checkpoint
 from transformers.utils.versions import require_version
 
@@ -247,6 +250,24 @@ class DataTrainingArguments:
 		)
 
 
+# Define a callback to save evaluation results in a csv file
+eval_results_df = pd.DataFrame(columns=["epoch", "eval_accuracy", "eval_loss"])
+
+
+class SaveEvalResultsCallback(TrainerCallback):
+	def on_evaluate(self, args: TrainingArguments, state: TrainerState, control: TrainerControl, **kwargs):
+		global eval_results_df
+		metrics = kwargs.pop("metrics")
+		if state.is_world_process_zero:
+			eval_result = {
+				"epoch"        : state.epoch,
+				"eval_accuracy": metrics["eval_accuracy"],
+				"eval_loss"    : metrics["eval_loss"]
+				}
+			eval_result_df = pd.DataFrame([eval_result])
+			eval_results_df = pd.concat([eval_results_df, eval_result_df])
+
+
 def main():
 	# See all possible arguments in src/transformers/training_args.py
 	# or by passing the --help flag to this script.
@@ -269,7 +290,7 @@ def main():
 		model_args.tokenizer_name = "gpt2"
 
 	# Determine the default experiment serial
-	serial = ""
+	serial = f"Epoch{int(training_args.num_train_epochs)}-LR{training_args.learning_rate}-"
 	if model_args.randomized:
 		serial += "Randomized-"
 	elif model_args.mod_randomized:
@@ -288,7 +309,7 @@ def main():
 
 	# WanDB setup
 	if model_args.use_mlp:
-		wandb_proj_name = f"Probe-{data_args.task}-DP-MLP-Dim{model_args.mlp_dim}-Layer{model_args.mlp_layers}"
+		wandb_proj_name = f"ConvergedProbe-{data_args.task}-DPMLP-Dim{model_args.mlp_dim}-Layer{model_args.mlp_layers}"
 	else:
 		wandb_proj_name = "Probe-" + data_args.task + "-DP-LR"
 	if model_args.mod_randomized:
@@ -327,7 +348,7 @@ def main():
 	wandb.init(
 		project=wandb_proj_name,
 		name=serial,
-		group=group_name,
+		# group=group_name,
 		)
 	training_args.report_to = ["wandb"]
 	training_args.logging_steps = 50
@@ -497,12 +518,12 @@ def main():
 		logger.info(f"Training new gpt2 from scratch - Total size={n_params / 2 ** 20:.2f}M params")
 		logger.info(f"Norm modified weight initialization strategy.")
 
-		# import numpy as np
-		# state_dict = gpt2.state_dict()
-		# for name, param in state_dict.items():
-		# 	print(name)
-		# 	norm = torch.norm(param)
-		# 	print(f"Norm: {norm}")
+	# import numpy as np
+	# state_dict = gpt2.state_dict()
+	# for name, param in state_dict.items():
+	# 	print(name)
+	# 	norm = torch.norm(param)
+	# 	print(f"Norm: {norm}")
 
 	gpt2.resize_token_embeddings(len(tokenizer))
 
@@ -636,6 +657,9 @@ def main():
 		accuracy = accuracy[0] / accuracy[1]
 		return {"accuracy": accuracy}
 
+	# Modify output dir
+	training_args.output_dir = os.path.join(training_args.output_dir, wandb_proj_name, serial)
+
 	# Initialize our Trainer
 	trainer = Trainer(
 		model=model,
@@ -647,6 +671,7 @@ def main():
 		data_collator=default_data_collator,
 		optimizers=(optimizer, None),
 		compute_metrics=compute_metrics,
+		callbacks=[SaveEvalResultsCallback()]
 		)
 
 	# Training
@@ -657,7 +682,7 @@ def main():
 		elif last_checkpoint is not None:
 			checkpoint = last_checkpoint
 		train_result = trainer.train(resume_from_checkpoint=checkpoint)
-		# trainer.save_model()  # Saves the tokenizer too for easy upload
+		trainer.save_model(output_dir=training_args.output_dir)  # Saves the tokenizer too for easy upload
 
 		metrics = train_result.metrics
 
@@ -667,9 +692,6 @@ def main():
 		metrics["train_samples"] = min(max_train_samples, len(train_dataset))
 
 		trainer.log_metrics("train", metrics)
-	# trainer.save_metrics("train", metrics)
-	# trainer.save_state()
-
 	if model_args.do_prune:
 		head_mask = convert_gate_to_mask(model.w, model_args.num_of_heads)
 		model.apply_masks(head_mask)
@@ -693,8 +715,7 @@ def main():
 
 		trainer.log_metrics("eval", metrics)
 
-
-# trainer.save_metrics("eval", metrics)
+	eval_results_df.to_csv(os.path.join(training_args.output_dir, "eval_results.csv"), index=False)
 
 
 def _mp_fn(index):
