@@ -258,14 +258,17 @@ class SaveEvalResultsCallback(TrainerCallback):
 	def on_evaluate(self, args: TrainingArguments, state: TrainerState, control: TrainerControl, **kwargs):
 		global eval_results_df
 		metrics = kwargs.pop("metrics")
+		cur_epoch: int = int(state.epoch)
+
 		if state.is_world_process_zero:
 			eval_result = {
-				"epoch"        : state.epoch,
+				"epoch"        : cur_epoch,
 				"eval_accuracy": metrics["eval_accuracy"],
 				"eval_loss"    : metrics["eval_loss"]
 				}
 			eval_result_df = pd.DataFrame([eval_result])
 			eval_results_df = pd.concat([eval_results_df, eval_result_df])
+			eval_results_df.to_csv(os.path.join(args.output_dir, f"eval_results.csv"), index=False)
 
 
 def main():

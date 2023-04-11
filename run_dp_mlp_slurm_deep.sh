@@ -1,9 +1,9 @@
 #!/bin/bash -l
 
 #SBATCH -n 1
+#SBATCH --cpus-per-task=1
 #SBATCH --gpus=rtx_3090:1
-#SBATCH --gres=gpumem:16384m
-#SBATCH --time=120:00:00
+#SBATCH --time=24:00:00
 #SBATCH --mem-per-cpu=16384
 
 module load eth_proxy
@@ -27,11 +27,10 @@ python3 run_dp.py \
   --save_strategy no \
   --mlp_dropout 0.0 \
   --num_train_epochs 256.0 \
-  --learning_rate 5e-4 \
+  --learning_rate 1e-5 \
   --weight_decay 0.0 \
-  --dev \
   --mlp_dim 512 \
-  --mlp_layers 32 \
+  --mlp_layers 64 \
   --fp16 \
   --evaluation_strategy epoch \
   --randomized \

@@ -1,6 +1,6 @@
 #!/bin/bash -l
 
-#SBATCH -n 1
+#SBATCH -n 4
 #SBATCH --gpus=a100-pcie-40gb:1
 #SBATCH --gres=gpumem:16384m
 #SBATCH --time=120:00:00
@@ -25,12 +25,12 @@ python3 run_pp.py \
   --overwrite_output_dir \
   --use_fast_tokenizer False \
   --cache_dir cache/ \
-  --save_strategy no \
-  --num_train_epochs 256.0 \
+  --num_train_epochs 256 \
   --learning_rate 5e-6 \
-  --prefix_len 200 \
+  --prefix_len 100 \
   --weight_decay 0.0 \
   --fp16 \
   --evaluation_strategy epoch \
   --dev \
   --randomized \
+#  --save_strategy epoch \

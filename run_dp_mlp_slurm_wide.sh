@@ -1,9 +1,9 @@
 #!/bin/bash -l
 
 #SBATCH -n 1
-#SBATCH --gpus=rtx_3090:1
-#SBATCH --gres=gpumem:16384m
-#SBATCH --time=120:00:00
+#SBATCH --cpus-per-task=1
+#SBATCH --gpus=rtx_2080_ti:1
+#SBATCH --time=48:00:00
 #SBATCH --mem-per-cpu=16384
 
 module load eth_proxy
@@ -21,7 +21,7 @@ python3 run_dp.py \
   --gpt2_name_or_path gpt2 \
   --data_dir ontonotes/dp/ \
   --task $TASK_NAME \
-  --output_dir outputs/dp/lr/$TASK_NAME/ \
+  --output_dir outputs/dp/mlp/$TASK_NAME/ \
   --overwrite_output_dir \
   --cache_dir cache/ \
   --save_strategy no \
@@ -29,9 +29,9 @@ python3 run_dp.py \
   --num_train_epochs 256.0 \
   --learning_rate 1e-4 \
   --weight_decay 0.0 \
-  --randomized \
-  --dev \
-  --mlp_dim 768 \
+  --mlp_dim 4096 \
   --mlp_layers 4 \
   --fp16 \
   --evaluation_strategy epoch \
+  --randomized \
+# --dev

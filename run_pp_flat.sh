@@ -28,7 +28,7 @@ python3 run_pp.py \
   --save_strategy no \
   --num_train_epochs 256.0 \
   --learning_rate 5e-4 \
-  --prefix_len 50 \
+  --prefix_len 100 \
   --weight_decay 0.0 \
   --fp16 \
   --evaluation_strategy epoch \

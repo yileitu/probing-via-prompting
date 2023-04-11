@@ -228,20 +228,38 @@ class DataTrainingArguments:
 
 # Define a callback to save evaluation results in a csv file
 eval_results_df = pd.DataFrame(columns=["epoch", "eval_accuracy", "eval_loss"])
+SAVE_EPOCHS: int = 1
 
 
 class SaveEvalResultsCallback(TrainerCallback):
 	def on_evaluate(self, args: TrainingArguments, state: TrainerState, control: TrainerControl, **kwargs):
 		global eval_results_df
 		metrics = kwargs.pop("metrics")
+		cur_epoch: int = int(state.epoch)
+
 		if state.is_world_process_zero:
 			eval_result = {
-				"epoch"        : state.epoch,
+				"epoch"        : cur_epoch,
 				"eval_accuracy": metrics["eval_accuracy"],
 				"eval_loss"    : metrics["eval_loss"]
 				}
 			eval_result_df = pd.DataFrame([eval_result])
 			eval_results_df = pd.concat([eval_results_df, eval_result_df])
+			eval_results_df.to_csv(os.path.join(args.output_dir, f"eval_results.csv"), index=False)
+
+		# if cur_epoch % SAVE_EPOCHS == 0:
+		# 	args.output_dir = os.path.join(args.output_dir, "ckpt-{}".format(cur_epoch))
+		# 	if not os.path.exists(args.output_dir):
+		# 		os.makedirs(args.output_dir)
+		# 	control.should_save = True
+		# 	eval_results_df.to_csv(os.path.join(args.output_dir, "eval_results.csv"), index=False)
+	# 	save_path = os.path.join(args.output_dir, "ckpt-{}".format(cur_epoch))
+	# 	if not os.path.exists(save_path):
+	# 		os.makedirs(save_path)
+	# 	eval_results_df.to_csv(os.path.join(save_path, "eval_results.csv"), index=False)
+	# 	model = kwargs.pop("model")
+	# 	model.save(save_path)
+	# 	logger.info(f"Save model checkpoint-{cur_epoch} to {save_path}.")
 
 
 def main():
@@ -550,6 +568,7 @@ def main():
 		optimizer = None
 
 	# Modify output dir
+	final_model_output_dir = os.path.join(training_args.output_dir, wandb_proj_name, serial)
 	training_args.output_dir = os.path.join(training_args.output_dir, wandb_proj_name, serial)
 
 	# Initialize our Trainer
@@ -573,7 +592,7 @@ def main():
 		elif last_checkpoint is not None:
 			checkpoint = last_checkpoint
 		train_result = trainer.train(resume_from_checkpoint=checkpoint)
-		trainer.save_model(output_dir=training_args.output_dir)  # Saves the tokenizer too for easy upload
+		trainer.save_model(output_dir=final_model_output_dir)  # Saves the tokenizer too for easy upload
 
 		metrics = train_result.metrics
 
@@ -612,7 +631,7 @@ def main():
 
 		trainer.log_metrics("eval", metrics)
 
-	eval_results_df.to_csv(os.path.join(training_args.output_dir, "eval_results.csv"), index=False)
+	eval_results_df.to_csv(os.path.join(final_model_output_dir, "eval_results.csv"), index=False)
 
 
 def _mp_fn(index):
