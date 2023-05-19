@@ -212,6 +212,12 @@ class ModelArguments:
 			"help": "Saturated attention mode."
 			},
 		)
+	onehot: bool = field(
+		default=False,
+		metadata={
+			"help": "If true, extract the embeddings from GPT2 and then pass them as input to the probe."
+			},
+		)
 
 
 @dataclass
@@ -315,8 +321,12 @@ def main():
 		wandb_proj_name = f"ConvergedProbe-{data_args.task}-DPMLP-Dim{model_args.mlp_dim}-Layer{model_args.mlp_layers}"
 	else:
 		wandb_proj_name = "Probe-" + data_args.task + "-DP-LR"
+
 	if model_args.mod_randomized:
 		wandb_proj_name += "-ModRand"
+
+	if model_args.onehot:
+		wandb_proj_name += "-OneHot"
 
 	# CONCERN: 写得不优美，先用verbose代替处理如何控制wandb分组
 	if model_args.verbose == 1 and model_args.mod_randomized:
@@ -468,6 +478,10 @@ def main():
 
 	config.num_labels = len(label2id)
 	config.saturated = model_args.saturated
+	config.onehot = model_args.onehot
+	if config.onehot:
+		logger.info("Using onehot embeddings.")
+
 
 	if model_args.gpt2_name_or_path:
 		gpt2 = GPT2Model.from_pretrained(
@@ -521,17 +535,9 @@ def main():
 		logger.info(f"Training new gpt2 from scratch - Total size={n_params / 2 ** 20:.2f}M params")
 		logger.info(f"Norm modified weight initialization strategy.")
 
-	# import numpy as np
-	# state_dict = gpt2.state_dict()
-	# for name, param in state_dict.items():
-	# 	print(name)
-	# 	norm = torch.norm(param)
-	# 	print(f"Norm: {norm}")
-
 	gpt2.resize_token_embeddings(len(tokenizer))
 
 	if model_args.model_path:
-		# TODO: Pretrained model 如何更改GPT2的mlp
 		config = AutoConfig.from_pretrained(model_args.model_path, cache_dir=model_args.cache_dir)
 		model = GPT2ForDiagnosticProbing.from_pretrained(model_args.model_path, config=config, gpt2=gpt2)
 	else:

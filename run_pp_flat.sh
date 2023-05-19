@@ -1,7 +1,7 @@
 #!/bin/bash -l
 
 #SBATCH -n 1
-#SBATCH --gpus=rtx_3090:1
+#SBATCH --gpus=v100:1
 #SBATCH --gres=gpumem:16384m
 #SBATCH --time=120:00:00
 #SBATCH --mem-per-cpu=16384
@@ -28,10 +28,10 @@ python3 run_pp.py \
   --save_strategy no \
   --num_train_epochs 256.0 \
   --learning_rate 5e-4 \
-  --prefix_len 100 \
+  --prefix_len 200 \
   --weight_decay 0.0 \
   --fp16 \
   --evaluation_strategy epoch \
   --dev \
   --randomized \
-  --flat
+  --flat \

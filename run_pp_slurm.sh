@@ -1,6 +1,6 @@
 #!/bin/bash -l
 
-#SBATCH -n 4
+#SBATCH -n 1
 #SBATCH --gpus=a100-pcie-40gb:1
 #SBATCH --gres=gpumem:16384m
 #SBATCH --time=120:00:00
@@ -11,6 +11,7 @@ module load gcc/8.2.0
 conda activate PvP
 
 export TASK_NAME=ner
+export CUDA_LAUNCH_BLOCKING=1
 
 python3 run_pp.py \
   --seed 21946520 \
@@ -26,11 +27,13 @@ python3 run_pp.py \
   --use_fast_tokenizer False \
   --cache_dir cache/ \
   --num_train_epochs 256 \
-  --learning_rate 5e-6 \
-  --prefix_len 100 \
+  --learning_rate 1e-4 \
+  --prefix_len 20 \
   --weight_decay 0.0 \
   --fp16 \
   --evaluation_strategy epoch \
   --dev \
   --randomized \
-#  --save_strategy epoch \
+  --save_strategy steps \
+  --save_steps 1029920 \
+

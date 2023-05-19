@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 from matplotlib.ticker import MultipleLocator
 
-NUM_LAYER: int = 8
+NUM_LAYER: int = 64
 PROBE_NAME: str = f"DPMLP-Dim512-Layer{NUM_LAYER}"
 
 

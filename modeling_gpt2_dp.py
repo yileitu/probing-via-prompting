@@ -1,5 +1,5 @@
-from typing import Optional
 from copy import deepcopy
+from typing import Optional
 
 import torch
 import wandb
@@ -22,8 +22,13 @@ class GPT2ForDiagnosticProbing(GPT2PreTrainedModel):
 	def __init__(self, config, gpt2):
 		super().__init__(config)
 		self.transformer = gpt2
-		for param in self.transformer.parameters():
-			param.requires_grad = False
+
+		if not config.onehot:
+			for param in self.transformer.parameters():
+				param.requires_grad = False
+		else:
+			for param in self.transformer.parameters():
+				param.requires_grad = True
 
 		# Model parallel
 		self.model_parallel = False
@@ -36,7 +41,10 @@ class GPT2ForDiagnosticProbing(GPT2PreTrainedModel):
 		self.mlp_layers: int = config.mlp_layers
 		self.use_mlp = config.use_mlp
 
-		self.scalar_mix = scalar_mix.ScalarMix(config.n_layer, do_layer_norm=False)
+		self.onehot: bool = config.onehot
+
+		self.scalar_mix = scalar_mix.ScalarMix(config.n_layer)
+		# self.onehot_scalar_mix = scalar_mix.ScalarMix(1)
 
 		self.proj1 = nn.Conv1d(
 			config.n_embd,
@@ -73,11 +81,11 @@ class GPT2ForDiagnosticProbing(GPT2PreTrainedModel):
 				)
 		else:
 			input_layer_list = [
-					nn.Linear(self.d_inp, self.mlp_dim),
-					nn.Tanh(),
-					nn.LayerNorm(self.mlp_dim),
-					nn.Dropout(self.mlp_dropout),
-					]
+				nn.Linear(self.d_inp, self.mlp_dim),
+				nn.Tanh(),
+				nn.LayerNorm(self.mlp_dim),
+				nn.Dropout(self.mlp_dropout),
+				]
 			output_layer_list = [nn.Linear(self.mlp_dim, self.num_labels)]
 			if self.mlp_layers == 1:
 				classifier_module_list = deepcopy(input_layer_list) + deepcopy(output_layer_list)
@@ -89,13 +97,13 @@ class GPT2ForDiagnosticProbing(GPT2PreTrainedModel):
 					classifier_module_list.append(nn.LayerNorm(self.mlp_dim))
 					classifier_module_list.append(nn.Dropout(self.mlp_dropout))
 				classifier_module_list += deepcopy(output_layer_list)
-				# hidden_layer_base = [
-				# 	nn.Linear(self.mlp_dim, self.mlp_dim),
-				# 	nn.Tanh(),
-				# 	nn.LayerNorm(self.mlp_dim),
-				# 	nn.Dropout(self.mlp_dropout)
-				# ]
-				# classifier_module_list = input_layer_list + hidden_layer_base * (self.mlp_layers - 1) + output_layer_list
+			# hidden_layer_base = [
+			# 	nn.Linear(self.mlp_dim, self.mlp_dim),
+			# 	nn.Tanh(),
+			# 	nn.LayerNorm(self.mlp_dim),
+			# 	nn.Dropout(self.mlp_dropout)
+			# ]
+			# classifier_module_list = input_layer_list + hidden_layer_base * (self.mlp_layers - 1) + output_layer_list
 			else:
 				raise ValueError(f"The num of MLP layers should be a positive integer. Your input is {self.mlp_layer}")
 			self.classifier = nn.Sequential(*classifier_module_list)
@@ -130,27 +138,49 @@ class GPT2ForDiagnosticProbing(GPT2PreTrainedModel):
 			head_mask = STEFunction.apply(self.w.view(-1), self.num_of_heads).view_as(self.w)
 			self.apply_masks(head_mask)
 
-		transformer_outputs = self.transformer(
-			input_ids,
-			past_key_values=past_key_values,
-			attention_mask=attention_mask,
-			token_type_ids=token_type_ids,
-			position_ids=position_ids,
-			head_mask=head_mask,
-			inputs_embeds=inputs_embeds,
-			encoder_hidden_states=encoder_hidden_states,
-			encoder_attention_mask=encoder_attention_mask,
-			use_cache=use_cache,
-			output_attentions=output_attentions,
-			output_hidden_states=True,
-			return_dict=True,
-			)
+		if self.onehot is False:
+			transformer_outputs = self.transformer(
+				input_ids,
+				past_key_values=past_key_values,
+				attention_mask=attention_mask,
+				token_type_ids=token_type_ids,
+				position_ids=position_ids,
+				head_mask=head_mask,
+				inputs_embeds=inputs_embeds,
+				encoder_hidden_states=encoder_hidden_states,
+				encoder_attention_mask=encoder_attention_mask,
+				use_cache=use_cache,
+				output_attentions=output_attentions,
+				output_hidden_states=True,
+				return_dict=True,
+				)
+		else:
+			# Extract the embeddings from GPT2 and then pass them as input to the probe
+			input_shape = input_ids.size()
+			if inputs_embeds is None:
+				inputs_embeds = self.transformer.wte(input_ids)
+			# position_embeds = self.transformer.wpe(position_ids)
+			# hidden_states = inputs_embeds + position_embeds
+			hidden_states = inputs_embeds
+			if token_type_ids is not None:
+				token_type_embeds = self.transformer.wte(token_type_ids)
+				hidden_states = hidden_states + token_type_embeds
+			hidden_states = self.transformer.drop(hidden_states)
+			output_shape = input_shape + (hidden_states.size(-1),)
+			hidden_states = self.transformer.ln_f(hidden_states)
+			hidden_states = hidden_states.view(*output_shape)
+
 		if not self.use_mlp:
-			# TODO:
 			contextual_embeddings = transformer_outputs[0]
 		else:
-			all_hidden_states = transformer_outputs.hidden_states[1:]
-			contextual_embeddings = self.scalar_mix(all_hidden_states)
+			if self.onehot is False:
+				all_hidden_states = transformer_outputs.hidden_states[1:]
+				contextual_embeddings = self.scalar_mix(all_hidden_states)
+			else:
+				all_hidden_states = ()
+				all_hidden_states += (hidden_states,)
+				# contextual_embeddings = self.scalar_mix(all_hidden_states)
+				contextual_embeddings = all_hidden_states
 
 		span_mask = span1s[:, :, 0] != -1
 
