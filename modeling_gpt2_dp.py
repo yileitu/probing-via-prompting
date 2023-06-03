@@ -23,12 +23,13 @@ class GPT2ForDiagnosticProbing(GPT2PreTrainedModel):
 		super().__init__(config)
 		self.transformer = gpt2
 
-		if not config.onehot:
+		if config.onehot is False:
 			for param in self.transformer.parameters():
 				param.requires_grad = False
 		else:
 			for param in self.transformer.parameters():
 				param.requires_grad = True
+			print("Onehot is True. All parameters are trainable.")
 
 		# Model parallel
 		self.model_parallel = False
@@ -44,7 +45,7 @@ class GPT2ForDiagnosticProbing(GPT2PreTrainedModel):
 		self.onehot: bool = config.onehot
 
 		self.scalar_mix = scalar_mix.ScalarMix(config.n_layer)
-		# self.onehot_scalar_mix = scalar_mix.ScalarMix(1)
+		self.onehot_scalar_mix = scalar_mix.ScalarMix(1)
 
 		self.proj1 = nn.Conv1d(
 			config.n_embd,
@@ -179,8 +180,8 @@ class GPT2ForDiagnosticProbing(GPT2PreTrainedModel):
 			else:
 				all_hidden_states = ()
 				all_hidden_states += (hidden_states,)
-				# contextual_embeddings = self.scalar_mix(all_hidden_states)
-				contextual_embeddings = all_hidden_states
+				contextual_embeddings = self.onehot_scalar_mix(all_hidden_states)
+				# contextual_embeddings = all_hidden_states
 
 		span_mask = span1s[:, :, 0] != -1
 

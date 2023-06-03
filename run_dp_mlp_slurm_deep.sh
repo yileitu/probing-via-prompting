@@ -2,7 +2,7 @@
 
 #SBATCH -n 1
 #SBATCH --cpus-per-task=1
-#SBATCH --gpus=v100:1
+#SBATCH --gpus=rtx_2080_ti:1
 #SBATCH --time=24:00:00
 #SBATCH --mem-per-cpu=16384
 
@@ -31,7 +31,7 @@ python3 run_dp.py \
   --learning_rate 1e-4 \
   --weight_decay 0.0 \
   --mlp_dim 512 \
-  --mlp_layers 8 \
+  --mlp_layers 4 \
   --fp16 \
   --evaluation_strategy epoch \
   --onehot \

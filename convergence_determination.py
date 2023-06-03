@@ -6,8 +6,8 @@ import pandas as pd
 
 DELTA_EPOCH: int = 10
 CONVERGENCE_THRESHOLD: float = 0.001
-DIM: int = 512
-LAYER: int = 4
+DIM: int = 256
+LAYER: int = 8
 # LR: str = "0.0001"
 LR: str = "5e-05"
 
@@ -48,7 +48,7 @@ def find_convergence_epoch(accuracy_data: List[float], threshold: float = 1e-3, 
 
 
 acc_df = pd.read_csv(
-	f'/Users/tuyilei/Desktop/NLP_SP/probing-via-prompting/outputs/dp/mlp/ner/ConvergedProbe-ner-DPMLP-Dim{DIM}-Layer{LAYER}/Epoch256-LR{LR}-Randomized-Test/eval_results.csv'
+	f'/Users/tuyilei/Desktop/NLP_SP/probing-via-prompting/outputs/dp/mlp/Wide/ConvergedProbe-ner-DPMLP-Dim{DIM}-Layer{LAYER}/Epoch256-LR{LR}-Randomized-Test/eval_results.csv'
 	)
 acc = acc_df['eval_accuracy'].values.tolist()[0:-1]
 

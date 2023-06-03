@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 from matplotlib.ticker import MultipleLocator
 
-LEN: int = 200
+LEN: int = 50
 PROBE_NAME: str = f"PP-Len{LEN}"
 
 # Read data from csv file
@@ -29,7 +29,6 @@ epoch_5e_6 = lr5e_6_df['epoch'].values.tolist()[0:-1]
 epoch = min(epoch_5e_5, epoch_1e_5, epoch_5e_6)
 lr5e_5_acc = lr5e_5_acc[0:len(epoch)]
 lr1e_5_acc = lr1e_5_acc[0:len(epoch)]
-print(lr5e_5_acc)
 lr5e_6_acc = lr5e_6_acc[0:len(epoch)]
 
 plt.rcParams['font.sans-serif'] = ['Arial']  # 如果要显示中文字体,则在此处设为：SimHei
@@ -59,11 +58,11 @@ if PLOT_PRETRAINED:
 		)
 
 plt.xlabel('Epoch')
-plt.ylabel('Accuracy')
-plt.title(f'Evaluation Accuracy of {PROBE_NAME} vs Epoch vs Learning Rates')
+plt.ylabel('Validation Accuracy')
+plt.title(f'{PROBE_NAME}, RLM')
 plt.legend()
 if not PLOT_PRETRAINED:
-	plt.savefig(f'{PROBE_NAME}_epoch_acc_lr.svg', format='svg', bbox_inches='tight')
+	plt.savefig(f'{PROBE_NAME}_val_acc.svg', format='svg', bbox_inches='tight')
 else:
 	plt.savefig(f'{PROBE_NAME}_pretrained_epoch_acc_lr.svg', format='svg', bbox_inches='tight')
 plt.show()

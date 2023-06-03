@@ -1,10 +1,10 @@
 #!/bin/bash -l
 
 #SBATCH -n 1
-#SBATCH --gpus=rtx_3090:1
-#SBATCH --gres=gpumem:16384m
-#SBATCH --time=120:00:00
-#SBATCH --mem-per-cpu=8192
+#SBATCH --cpus-per-task=1
+#SBATCH --gpus=rtx_2080_ti:1
+#SBATCH --time=24:00:00
+#SBATCH --mem-per-cpu=16384
 
 module load eth_proxy
 module load gcc/8.2.0
@@ -12,6 +12,7 @@ conda activate PvP
 wandb login
 
 export TASK_NAME=ner
+export CUDA_LAUNCH_BLOCKING=1
 
 python3 run_dp.py \
   --do_train \
@@ -25,15 +26,11 @@ python3 run_dp.py \
   --overwrite_output_dir \
   --cache_dir cache/ \
   --save_strategy no \
-  --mlp_dropout 0.0 \
+  --use_mlp False \
+  --num_train_epochs 256.0 \
+  --learning_rate 5e-5 \
   --weight_decay 0.0 \
-  --dev \
   --fp16 \
-  --init_mean 0.0 \
-  --init_std 0.0005 \
-  --num_train_epochs 32 \
-  --learning_rate 1e-2 \
-  --mod_randomized \
-  --mlp_dim 512 \
-  --mlp_layers 16 \
-  --verbose 1 \
+  --evaluation_strategy epoch \
+  --dev \
+  --randomized \
