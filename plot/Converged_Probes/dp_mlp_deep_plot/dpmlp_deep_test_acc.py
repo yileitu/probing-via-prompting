@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import matplotlib.pyplot as plt
+import seaborn as sns
 import numpy as np
 import pandas as pd
 from matplotlib.ticker import MultipleLocator
@@ -10,6 +11,8 @@ PROBE_NAME: str = f"DPMLP-Dim512-Layer{LAYER}"
 # OPT_LR: str = '0.0001'
 OPT_LR: str = '5e-05'
 PLOT_ONEHOT: bool = True
+set2_colors = sns.color_palette("Set2")
+
 
 # Read data from csv file
 pre_test_df = pd.read_csv(
@@ -73,14 +76,14 @@ if PLOT_ONEHOT:
 		f'/Users/tuyilei/Desktop/NLP_SP/probing-via-prompting/outputs/dp/mlp/ner/ConvergedProbe-ner-{PROBE_NAME}-OneHot/Epoch256-LR{OPT_LR}-Randomized-Test/eval_results.csv'
 	)
 	onehot_test_acc = onehot_test_df['eval_accuracy'].values.tolist()[0:-1]
-	plt.plot(epoch, onehot_test_acc, label='Onehot', color='orange', linestyle='-', marker='.')
+	plt.plot(epoch, onehot_test_acc, label='Onehot', color=set2_colors[0], linestyle='-', marker='.')
 
 
 # Plot the accuracy
-plt.plot(epoch, pre_test_acc, label='PLM', color='salmon', linestyle='-', marker='.')
-plt.plot(epoch, random_test_acc, label='RLM', color='skyblue', linestyle='-', marker='.')
-plt.plot(epoch, fitted_curve, color='gold', linewidth=2, linestyle='-', label='Fitted RLM')
-plt.plot(epoch[converged_epoch], fitted_curve[converged_epoch], marker='*', markersize=15, label='Conv.', color='gold')
+plt.plot(epoch, pre_test_acc, label='PLM', color=set2_colors[1], linestyle='-', marker='.')
+plt.plot(epoch, random_test_acc, label='RLM', color=set2_colors[2], linestyle='-', marker='.')
+plt.plot(epoch, fitted_curve, color=set2_colors[3], linewidth=2, linestyle='-', label='Fitted RLM')
+plt.plot(epoch[converged_epoch], fitted_curve[converged_epoch], marker='*', markersize=15, label='Conv.', color=set2_colors[4])
 plt.xlabel('Epoch')
 plt.ylabel('Test Accuracy')
 plt.title(f'{PROBE_NAME}, Optimal LR={OPT_LR}')

@@ -320,7 +320,7 @@ def main():
 	if model_args.use_mlp:
 		wandb_proj_name = f"ConvergedProbe-{data_args.task}-DPMLP-Dim{model_args.mlp_dim}-Layer{model_args.mlp_layers}"
 	else:
-		wandb_proj_name = f"ConvergedProbe-{data_args.task}-DPLR"
+		wandb_proj_name = f"ConvergedProbe-{data_args.task}-DPLR-Layer2"
 
 	if model_args.mod_randomized:
 		wandb_proj_name += "-ModRand"

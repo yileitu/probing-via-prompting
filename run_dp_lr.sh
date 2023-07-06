@@ -3,7 +3,7 @@
 #SBATCH -n 1
 #SBATCH --cpus-per-task=1
 #SBATCH --gpus=rtx_2080_ti:1
-#SBATCH --time=24:00:00
+#SBATCH --time=48:00:00
 #SBATCH --mem-per-cpu=16384
 
 module load eth_proxy
@@ -28,9 +28,9 @@ python3 run_dp.py \
   --save_strategy no \
   --use_mlp False \
   --num_train_epochs 256.0 \
-  --learning_rate 5e-5 \
+  --learning_rate 1e-4 \
   --weight_decay 0.0 \
   --fp16 \
   --evaluation_strategy epoch \
-  --dev \
-  --randomized \
+#  --randomized \
+#  --dev \

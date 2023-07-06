@@ -27,11 +27,11 @@ python3 run_pp.py \
   --cache_dir cache/ \
   --save_strategy no \
   --num_train_epochs 256.0 \
-  --learning_rate 1e-2 \
+  --learning_rate 1e-3 \
   --prefix_len 50 \
   --weight_decay 0.0 \
   --fp16 \
   --evaluation_strategy epoch \
-  --dev \
-  --randomized \
   --flat \
+#  --randomized \
+#  --dev \

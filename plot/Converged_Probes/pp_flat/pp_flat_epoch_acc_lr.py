@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 from matplotlib.ticker import MultipleLocator
 
-LEN: int = 100
+LEN: int = 200
 PROBE_NAME: str = f"PP-flat-Len{LEN}"
 
 # Read data from csv file
@@ -68,8 +68,8 @@ if PLOT_PRETRAINED:
 		)
 
 plt.xlabel('Epoch')
-plt.ylabel('Accuracy')
-plt.title(f'Evaluation Accuracy of {PROBE_NAME} vs Epoch vs Learning Rates')
+plt.ylabel('Validation Accuracy')
+plt.title(f'PP-Flat-Len{LEN}, RLM')
 plt.legend()
 if not PLOT_PRETRAINED:
 	plt.savefig(f'{PROBE_NAME}_epoch_acc_lr.svg', format='svg', bbox_inches='tight')

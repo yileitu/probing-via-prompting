@@ -247,20 +247,6 @@ class SaveEvalResultsCallback(TrainerCallback):
 			eval_results_df = pd.concat([eval_results_df, eval_result_df])
 			eval_results_df.to_csv(os.path.join(args.output_dir, f"eval_results.csv"), index=False)
 
-		# if cur_epoch % SAVE_EPOCHS == 0:
-		# 	args.output_dir = os.path.join(args.output_dir, "ckpt-{}".format(cur_epoch))
-		# 	if not os.path.exists(args.output_dir):
-		# 		os.makedirs(args.output_dir)
-		# 	control.should_save = True
-		# 	eval_results_df.to_csv(os.path.join(args.output_dir, "eval_results.csv"), index=False)
-	# 	save_path = os.path.join(args.output_dir, "ckpt-{}".format(cur_epoch))
-	# 	if not os.path.exists(save_path):
-	# 		os.makedirs(save_path)
-	# 	eval_results_df.to_csv(os.path.join(save_path, "eval_results.csv"), index=False)
-	# 	model = kwargs.pop("model")
-	# 	model.save(save_path)
-	# 	logger.info(f"Save model checkpoint-{cur_epoch} to {save_path}.")
-
 
 def main():
 	# See all possible arguments in src/transformers/training_args.py

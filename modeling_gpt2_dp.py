@@ -78,6 +78,7 @@ class GPT2ForDiagnosticProbing(GPT2PreTrainedModel):
 		if not self.use_mlp:
 			self.classifier = nn.Sequential(
 				nn.Dropout(self.mlp_dropout),
+				nn.Linear(self.d_inp, self.d_inp),
 				nn.Linear(self.d_inp, self.num_labels)
 				)
 		else:
@@ -98,13 +99,6 @@ class GPT2ForDiagnosticProbing(GPT2PreTrainedModel):
 					classifier_module_list.append(nn.LayerNorm(self.mlp_dim))
 					classifier_module_list.append(nn.Dropout(self.mlp_dropout))
 				classifier_module_list += deepcopy(output_layer_list)
-			# hidden_layer_base = [
-			# 	nn.Linear(self.mlp_dim, self.mlp_dim),
-			# 	nn.Tanh(),
-			# 	nn.LayerNorm(self.mlp_dim),
-			# 	nn.Dropout(self.mlp_dropout)
-			# ]
-			# classifier_module_list = input_layer_list + hidden_layer_base * (self.mlp_layers - 1) + output_layer_list
 			else:
 				raise ValueError(f"The num of MLP layers should be a positive integer. Your input is {self.mlp_layer}")
 			self.classifier = nn.Sequential(*classifier_module_list)
