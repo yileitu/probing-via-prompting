@@ -6,10 +6,10 @@ import pandas as pd
 
 DELTA_EPOCH: int = 10
 CONVERGENCE_THRESHOLD: float = 0.001
-DIM: int = 256
+DIM: int = 64
 LAYER: int = 8
-LEN: int = 50
-LR: str = "0.001"
+LEN: int = 100
+LR: str = "0.0001"
 # LR: str = "5e-05"
 
 
@@ -48,12 +48,15 @@ def find_convergence_epoch(accuracy_data: List[float], threshold: float = 1e-3, 
 	return None
 
 
-# acc_df = pd.read_csv(
-# 	f'/Users/tuyilei/Desktop/NLP_SP/probing-via-prompting/outputs/dp/mlp/Wide/ConvergedProbe-ner-DPMLP-Dim{DIM}-Layer{LAYER}/Epoch256-LR{LR}-Randomized-Test/eval_results.csv'
-# 	)
 acc_df = pd.read_csv(
-	f'/Users/tuyilei/Desktop/NLP_SP/probing-via-prompting/outputs/pp/ner/ConvergedProbe-ner-PP-flat-Len{LEN}/Epoch256-LR{LR}-Randomized-Test/eval_results.csv'
+	f'/Users/tuyilei/Desktop/NLP_SP/probing-via-prompting/outputs/dp/mlp/Wide/ConvergedProbe-ner-DPMLP-Dim{DIM}-Layer{LAYER}/Epoch256-LR{LR}-Randomized-Test/eval_results.csv'
 	)
+# acc_df = pd.read_csv(
+# 	f'/Users/tuyilei/Desktop/NLP_SP/probing-via-prompting/outputs/pp/ner/ConvergedProbe-ner-PP-Len{LEN}/Epoch256-LR{LR}-Randomized-Test/eval_results.csv'
+# 	)
+# acc_df = pd.read_csv(
+# 	f'/Users/tuyilei/Desktop/NLP_SP/probing-via-prompting/outputs/dp/lr/ner/ConvergedProbe-ner-DPLR/Epoch256-LR{LR}-Randomized-Test/eval_results.csv'
+# 	)
 acc = acc_df['eval_accuracy'].values.tolist()[0:-1]
 
 # convergence_epoch = find_convergence_point(acc, window_size=DELTA_EPOCH, threshold=CONVERGENCE_THRESHOLD)
@@ -110,13 +113,14 @@ def deriv_func(x, a, b, c):
 
 
 # Compute the derivative values
-deriv_values = deriv_func(range(1, len(acc) + 1), *popt)
+deriv_values = deriv_func(range(1, len(acc) + 1000), *popt)
 
 # Find the first epoch at which the derivative falls below the threshold
 threshold = 0.0001
 converged_epoch = next((i for i, deriv in enumerate(deriv_values) if abs(deriv) < threshold), len(acc))
+print(f"Convergence found at epoch {converged_epoch}")
 converged_acc = acc[converged_epoch]
-print(f"Convergence found at epoch {converged_epoch}, with accuracy {converged_acc:.4f}.")
+print(f"Converged accuracy {converged_acc:.4f}.")
 
 # Plot the fitted curve and the original data on the same plot
 fig, ax = plt.subplots(figsize=(8, 6))

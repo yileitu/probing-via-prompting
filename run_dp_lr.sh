@@ -28,9 +28,9 @@ python3 run_dp.py \
   --save_strategy no \
   --use_mlp False \
   --num_train_epochs 256.0 \
-  --learning_rate 1e-4 \
+  --learning_rate 1e-3 \
   --weight_decay 0.0 \
   --fp16 \
   --evaluation_strategy epoch \
-#  --randomized \
-#  --dev \
+  --randomized \
+  --dev \

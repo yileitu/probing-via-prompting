@@ -7,7 +7,8 @@
 #SBATCH --mem-per-cpu=16384
 
 module load eth_proxy
-module load gcc/8.2.0
+module load gcc/9.3.0
+module load cuda/11.7.0
 conda activate PvP
 wandb login
 
@@ -28,10 +29,10 @@ python3 run_dp.py \
   --save_strategy no \
   --mlp_dropout 0.0 \
   --num_train_epochs 256.0 \
-  --learning_rate 1e-6 \
+  --learning_rate 5e-5 \
   --weight_decay 0.0 \
-  --mlp_dim 512 \
-  --mlp_layers 128 \
+  --mlp_dim 1024 \
+  --mlp_layers 8 \
   --fp16 \
   --evaluation_strategy epoch \
   --randomized \
