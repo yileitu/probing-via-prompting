@@ -1,6 +1,6 @@
 #!/bin/bash -l
 
-#SBATCH -n 1
+#SBATCH -n 4
 #SBATCH --cpus-per-task=1
 #SBATCH --gpus=rtx_2080_ti:1
 #SBATCH --time=120:00:00
@@ -12,7 +12,7 @@ module load cuda/11.7.0
 conda activate PvP
 wandb login
 
-export TASK_NAME=ner
+export TASK_NAME=pos
 export CUDA_LAUNCH_BLOCKING=1
 
 python3 run_dp.py \
@@ -28,10 +28,10 @@ python3 run_dp.py \
   --cache_dir cache/ \
   --save_strategy no \
   --mlp_dropout 0.0 \
-  --num_train_epochs 256.0 \
+  --num_train_epochs 16.0 \
   --learning_rate 5e-5 \
   --weight_decay 0.0 \
-  --mlp_dim 1024 \
+  --mlp_dim 64 \
   --mlp_layers 8 \
   --fp16 \
   --evaluation_strategy epoch \
