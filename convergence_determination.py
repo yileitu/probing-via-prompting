@@ -10,6 +10,8 @@ DIM: int = 64
 LAYER: int = 8
 LEN: int = 100
 LR: str = "0.0001"
+
+
 # LR: str = "5e-05"
 
 
@@ -48,15 +50,15 @@ def find_convergence_epoch(accuracy_data: List[float], threshold: float = 1e-3, 
 	return None
 
 
-acc_df = pd.read_csv(
-	f'/Users/tuyilei/Desktop/NLP_SP/probing-via-prompting/outputs/dp/mlp/Wide/ConvergedProbe-ner-DPMLP-Dim{DIM}-Layer{LAYER}/Epoch256-LR{LR}-Randomized-Test/eval_results.csv'
-	)
+# acc_df = pd.read_csv(
+# 	f'/Users/tuyilei/Desktop/NLP_SP/probing-via-prompting/outputs/dp/mlp/Wide/ConvergedProbe-ner-DPMLP-Dim{DIM}-Layer{LAYER}/Epoch256-LR{LR}-Randomized-Test/eval_results.csv'
+# 	)
 # acc_df = pd.read_csv(
 # 	f'/Users/tuyilei/Desktop/NLP_SP/probing-via-prompting/outputs/pp/ner/ConvergedProbe-ner-PP-Len{LEN}/Epoch256-LR{LR}-Randomized-Test/eval_results.csv'
 # 	)
-# acc_df = pd.read_csv(
-# 	f'/Users/tuyilei/Desktop/NLP_SP/probing-via-prompting/outputs/dp/lr/ner/ConvergedProbe-ner-DPLR/Epoch256-LR{LR}-Randomized-Test/eval_results.csv'
-# 	)
+acc_df = pd.read_csv(
+	f'/Users/tuyilei/Desktop/NLP_SP/probing-via-prompting/outputs/dp/lr/ner/ConvergedProbe-ner-DPLR/Epoch256-LR{LR}-Randomized-Dev/eval_results.csv'
+	)
 acc = acc_df['eval_accuracy'].values.tolist()[0:-1]
 
 # convergence_epoch = find_convergence_point(acc, window_size=DELTA_EPOCH, threshold=CONVERGENCE_THRESHOLD)
@@ -74,53 +76,53 @@ acc = acc_df['eval_accuracy'].values.tolist()[0:-1]
 # else:
 # 	print("Convergence not found.")
 
-# # Set the window size for computing the standard deviation
-# window_size = 10
-# # Compute the standard deviation of accuracy values for each window
-# std_devs = [np.std(acc[i:i + window_size]) for i in range(len(acc) - window_size)]
-# # Find the first epoch at which the standard deviation falls below a threshold
-# threshold = 0.003
-# converged_epoch = next((i for i, std_dev in enumerate(std_devs) if std_dev < threshold), len(acc))
-# converged_acc = acc[converged_epoch]
-# print(f"Convergence found at epoch {converged_epoch}, with accuracy {converged_acc:.4f}.")
-
-from scipy.optimize import curve_fit
-import matplotlib.pyplot as plt
-
-
-# Define an exponential function to fit to the accuracy values
-# def exp_func(x, a, b, c):
-# 	return a * np.exp(-b * x) + c
-
-# Define a function to fit to the accuracy values
-def fit_func(x, a, b, c):
-	# return c - a * x ** (-b)
-	return a * np.exp(-b * x) + c
-
-
-# Fit the function to the accuracy values
-popt, _ = curve_fit(fit_func, range(len(acc)), acc)
-print(*popt)
-
-# Compute the fitted curve using the optimal parameters
-fitted_curve = fit_func(range(len(acc)), *popt)
-
-
-# Compute the derivative of the fitted function
-def deriv_func(x, a, b, c):
-	# return a * b * x ** (-(b + 1))
-	return -a * b * np.exp(-b * x)
-
-
-# Compute the derivative values
-deriv_values = deriv_func(range(1, len(acc) + 1000), *popt)
-
-# Find the first epoch at which the derivative falls below the threshold
-threshold = 0.0001
-converged_epoch = next((i for i, deriv in enumerate(deriv_values) if abs(deriv) < threshold), len(acc))
-print(f"Convergence found at epoch {converged_epoch}")
+# Set the window size for computing the standard deviation
+window_size = 10
+# Compute the standard deviation of accuracy values for each window
+std_devs = [np.std(acc[i:i + window_size]) for i in range(len(acc) - window_size)]
+# Find the first epoch at which the standard deviation falls below a threshold
+threshold = 0.003
+converged_epoch = next((i for i, std_dev in enumerate(std_devs) if std_dev < threshold), len(acc))
 converged_acc = acc[converged_epoch]
-print(f"Converged accuracy {converged_acc:.4f}.")
+print(f"Convergence found at epoch {converged_epoch}, with accuracy {converged_acc:.4f}.")
+
+# from scipy.optimize import curve_fit
+# import matplotlib.pyplot as plt
+#
+#
+# # Define an exponential function to fit to the accuracy values
+# # def exp_func(x, a, b, c):
+# # 	return a * np.exp(-b * x) + c
+#
+# # Define a function to fit to the accuracy values
+# def fit_func(x, a, b, c):
+# 	# return c - a * x ** (-b)
+# 	return a * np.exp(-b * x) + c
+#
+#
+# # Fit the function to the accuracy values
+# popt, _ = curve_fit(fit_func, range(len(acc)), acc)
+# print(*popt)
+#
+# # Compute the fitted curve using the optimal parameters
+# fitted_curve = fit_func(range(len(acc)), *popt)
+#
+#
+# # Compute the derivative of the fitted function
+# def deriv_func(x, a, b, c):
+# 	# return a * b * x ** (-(b + 1))
+# 	return -a * b * np.exp(-b * x)
+#
+#
+# # Compute the derivative values
+# deriv_values = deriv_func(range(1, len(acc) + 1000), *popt)
+#
+# # Find the first epoch at which the derivative falls below the threshold
+# threshold = 0.0001
+# converged_epoch = next((i for i, deriv in enumerate(deriv_values) if abs(deriv) < threshold), len(acc))
+# print(f"Convergence found at epoch {converged_epoch}")
+# converged_acc = acc[converged_epoch]
+# print(f"Converged accuracy {converged_acc:.4f}.")
 
 # Plot the fitted curve and the original data on the same plot
 fig, ax = plt.subplots(figsize=(8, 6))
