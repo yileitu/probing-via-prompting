@@ -34,7 +34,7 @@ import torch
 import transformers
 from datasets import load_dataset
 from tokenizers.pre_tokenizers import WhitespaceSplit
-from transformers import (AdamW, AutoConfig, AutoTokenizer, CONFIG_MAPPING, HfArgumentParser,
+from transformers import (AdamW, AutoConfig, AutoTokenizer, CONFIG_MAPPING, EarlyStoppingCallback, HfArgumentParser,
                           MODEL_FOR_CAUSAL_LM_MAPPING, Trainer, TrainerCallback, TrainerControl, TrainerState,
                           TrainingArguments,
                           default_data_collator, set_seed)
@@ -256,6 +256,7 @@ class DataTrainingArguments:
 		)
 
 
+
 # Define a callback to save evaluation results in a csv file
 eval_results_df = pd.DataFrame(columns=["epoch", "eval_accuracy", "eval_loss"])
 
@@ -320,7 +321,7 @@ def main():
 	if model_args.use_mlp:
 		wandb_proj_name = f"ConvergedProbe-{data_args.task}-DPMLP-Dim{model_args.mlp_dim}-Layer{model_args.mlp_layers}"
 	else:
-		wandb_proj_name = f"ConvergedProbe-{data_args.task}-DPLR-Layer2"
+		wandb_proj_name = f"ConvergedProbe-{data_args.task}-DPLR-Dim{model_args.mlp_dim}-Layer{model_args.mlp_layers}"
 
 	if model_args.mod_randomized:
 		wandb_proj_name += "-ModRand"
@@ -429,6 +430,7 @@ def main():
 		data_files["validation"] = os.path.join(data_args.data_dir, data_args.task, 'development.json')
 	else:
 		data_files["validation"] = os.path.join(data_args.data_dir, data_args.task, 'test.json')
+	data_files["test"] = os.path.join(data_args.data_dir, data_args.task, 'test.json')
 
 	raw_datasets = load_dataset("json", data_files=data_files, cache_dir=model_args.cache_dir, **dataset_args)
 	if "_control" in data_args.task:
@@ -680,7 +682,7 @@ def main():
 		data_collator=default_data_collator,
 		optimizers=(optimizer, None),
 		compute_metrics=compute_metrics,
-		callbacks=[SaveEvalResultsCallback()]
+		callbacks=[SaveEvalResultsCallback(), EarlyStoppingCallback(early_stopping_patience=10)],
 		)
 
 	# Training
@@ -717,8 +719,7 @@ def main():
 			f'Layer weights: {torch.stack([p for n, p in model.scalar_mix.named_parameters() if "scalar" in n]).flatten()}'
 			)
 
-		metrics = trainer.evaluate()
-
+		metrics = trainer.evaluate(eval_dataset=tokenized_datasets["test"])
 		max_eval_samples = data_args.max_eval_samples if data_args.max_eval_samples is not None else len(eval_dataset)
 		metrics["eval_samples"] = min(max_eval_samples, len(eval_dataset))
 

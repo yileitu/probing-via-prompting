@@ -76,11 +76,18 @@ class GPT2ForDiagnosticProbing(GPT2PreTrainedModel):
 		wandb.run.summary["input_layer_dim"] = self.d_inp
 
 		if not self.use_mlp:
-			self.classifier = nn.Sequential(
-				nn.Dropout(self.mlp_dropout),
-				nn.Linear(self.d_inp, self.d_inp),
-				nn.Linear(self.d_inp, self.num_labels)
-				)
+			lin_module_list = []
+			if self.mlp_layers == 1:
+				self.classifier = nn.Sequential(
+					nn.Linear(self.d_inp, self.d_inp),
+					nn.Linear(self.d_inp, self.num_labels)
+					)
+			elif self.mlp_layers >= 2:
+				lin_module_list.append(nn.Linear(self.d_inp, self.mlp_dim))
+				for _ in range(self.mlp_layers - 2):
+					lin_module_list.append(nn.Linear(self.mlp_dim, self.mlp_dim))
+				lin_module_list.append(nn.Linear(self.mlp_dim, self.num_labels))
+				self.classifier = nn.Sequential(*lin_module_list)
 		else:
 			input_layer_list = [
 				nn.Linear(self.d_inp, self.mlp_dim),
