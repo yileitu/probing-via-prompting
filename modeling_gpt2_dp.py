@@ -41,26 +41,15 @@ class GPT2ForDiagnosticProbing(GPT2PreTrainedModel):
 		self.mlp_dim = config.mlp_dim
 		self.mlp_layers: int = config.mlp_layers
 		self.use_mlp = config.use_mlp
+		self.n_embd = config.n_embd
 
 		self.onehot: bool = config.onehot
 
 		self.scalar_mix = scalar_mix.ScalarMix(config.n_layer)
-		self.onehot_scalar_mix = scalar_mix.ScalarMix(1)
+		# self.onehot_scalar_mix = scalar_mix.ScalarMix(1)
 
-		self.proj1 = nn.Conv1d(
-			config.n_embd,
-			config.mlp_dim,
-			kernel_size=1,
-			stride=1,
-			padding=0,
-			dilation=1,
-			groups=1,
-			bias=True,
-			)
-		self.span_extractor1 = SelfAttentiveSpanExtractor(config.mlp_dim)
-		self.d_inp = self.span_extractor1.get_output_dim()
-		if not self.unary:
-			self.proj2 = nn.Conv1d(
+		if self.onehot is False:
+			self.proj1 = nn.Conv1d(
 				config.n_embd,
 				config.mlp_dim,
 				kernel_size=1,
@@ -70,6 +59,42 @@ class GPT2ForDiagnosticProbing(GPT2PreTrainedModel):
 				groups=1,
 				bias=True,
 				)
+		else:
+			self.proj1 = nn.Conv1d(
+				config.vocab_size,
+				config.mlp_dim,
+				kernel_size=1,
+				stride=1,
+				padding=0,
+				dilation=1,
+				groups=1,
+				bias=True,
+				)
+		self.span_extractor1 = SelfAttentiveSpanExtractor(config.mlp_dim)
+		self.d_inp = self.span_extractor1.get_output_dim()
+		if not self.unary:
+			if self.onehot is False:
+				self.proj2 = nn.Conv1d(
+					config.n_embd,
+					config.mlp_dim,
+					kernel_size=1,
+					stride=1,
+					padding=0,
+					dilation=1,
+					groups=1,
+					bias=True,
+					)
+			else:
+				self.proj2 = nn.Conv1d(
+					config.vocab_size,
+					config.mlp_dim,
+					kernel_size=1,
+					stride=1,
+					padding=0,
+					dilation=1,
+					groups=1,
+					bias=True,
+					)
 			self.span_extractor2 = SelfAttentiveSpanExtractor(config.mlp_dim)
 			self.d_inp += self.span_extractor2.get_output_dim()
 
@@ -79,13 +104,15 @@ class GPT2ForDiagnosticProbing(GPT2PreTrainedModel):
 			lin_module_list = []
 			if self.mlp_layers == 1:
 				self.classifier = nn.Sequential(
-					nn.Linear(self.d_inp, self.d_inp),
-					nn.Linear(self.d_inp, self.num_labels)
+					nn.Linear(self.d_inp, self.mlp_dim),
+					nn.Tanh(),
+					nn.Linear(self.mlp_dim, self.num_labels)
 					)
 			elif self.mlp_layers >= 2:
 				lin_module_list.append(nn.Linear(self.d_inp, self.mlp_dim))
-				for _ in range(self.mlp_layers - 2):
+				for _ in range(self.mlp_layers - 1):
 					lin_module_list.append(nn.Linear(self.mlp_dim, self.mlp_dim))
+				lin_module_list.append(nn.Tanh())  # Only add activation function in the last layer
 				lin_module_list.append(nn.Linear(self.mlp_dim, self.num_labels))
 				self.classifier = nn.Sequential(*lin_module_list)
 		else:
@@ -159,18 +186,16 @@ class GPT2ForDiagnosticProbing(GPT2PreTrainedModel):
 		else:
 			# Extract the embeddings from GPT2 and then pass them as input to the probe
 			input_shape = input_ids.size()
-			if inputs_embeds is None:
-				inputs_embeds = self.transformer.wte(input_ids)
-			# position_embeds = self.transformer.wpe(position_ids)
-			# hidden_states = inputs_embeds + position_embeds
-			hidden_states = inputs_embeds
-			if token_type_ids is not None:
-				token_type_embeds = self.transformer.wte(token_type_ids)
-				hidden_states = hidden_states + token_type_embeds
-			hidden_states = self.transformer.drop(hidden_states)
-			output_shape = input_shape + (hidden_states.size(-1),)
-			hidden_states = self.transformer.ln_f(hidden_states)
-			hidden_states = hidden_states.view(*output_shape)
+			contextual_embeddings = torch.nn.functional.one_hot(input_ids, num_classes=self.config.vocab_size).half()
+
+			# hidden_states = inputs_embeds
+			# if token_type_ids is not None:
+			# 	token_type_embeds = self.transformer.wte(token_type_ids)
+			# 	hidden_states = hidden_states + token_type_embeds
+			# hidden_states = self.transformer.drop(hidden_states)
+			# output_shape = input_shape + (hidden_states.size(-1),)
+			# hidden_states = self.transformer.ln_f(hidden_states)
+			# hidden_states = hidden_states.view(*output_shape)
 
 		if not self.use_mlp:
 			contextual_embeddings = transformer_outputs[0]
@@ -178,11 +203,11 @@ class GPT2ForDiagnosticProbing(GPT2PreTrainedModel):
 			if self.onehot is False:
 				all_hidden_states = transformer_outputs.hidden_states[1:]
 				contextual_embeddings = self.scalar_mix(all_hidden_states)
-			else:
-				all_hidden_states = ()
-				all_hidden_states += (hidden_states,)
-				contextual_embeddings = self.onehot_scalar_mix(all_hidden_states)
-				# contextual_embeddings = all_hidden_states
+			# else:
+			# 	# all_hidden_states = ()
+			# 	# all_hidden_states += (hidden_states,)
+			# 	# contextual_embeddings = self.onehot_scalar_mix(all_hidden_states)
+			# 	contextual_embeddings = hidden_states
 
 		span_mask = span1s[:, :, 0] != -1
 
