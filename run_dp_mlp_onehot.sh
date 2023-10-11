@@ -5,7 +5,7 @@
 #SBATCH --time=24:00:00
 #SBATCH --mem-per-cpu=4096
 #SBATCH --gpus=1
-#SBATCH --gres=gpumem:10240m
+#SBATCH --gres=gpumem:20000m
 
 module load eth_proxy
 module load gcc/9.3.0
@@ -29,13 +29,15 @@ python3 run_dp.py \
   --cache_dir cache/ \
   --mlp_dropout 0.0 \
   --num_train_epochs 256.0 \
-  --learning_rate 1e-4 \
+  --learning_rate 5e-4 \
   --weight_decay 0.0 \
   --mlp_dim 512 \
-  --mlp_layers 128 \
+  --mlp_layers 1 \
   --fp16 \
-  --use_mlp False \
+  --use_mlp True \
   --randomized \
   --dev \
   --save_strategy epoch \
-  --evaluation_strategy epoch
+  --evaluation_strategy epoch \
+  --onehot True \
+

@@ -1,9 +1,9 @@
 #!/bin/bash -l
 
-#SBATCH -n 1
-#SBATCH --cpus-per-task=1
+#SBATCH -n 4
+#SBATCH --cpus-per-task=4
 #SBATCH --time=24:00:00
-#SBATCH --mem-per-cpu=16384
+#SBATCH --mem-per-cpu=4096
 #SBATCH --gpus=1
 #SBATCH --gres=gpumem:10240m
 
@@ -34,12 +34,10 @@ python3 run_dp.py \
   --mlp_dim 512 \
   --mlp_layers 4 \
   --fp16 \
-  --evaluation_strategy epoch \
-  --use_mlp False \
+  --use_mlp True \
   --randomized \
   --dev \
   --save_strategy epoch \
-  --load_best_model_at_end True \
-  --metric_for_best_model eval_loss \
-#  --onehot \
+  --evaluation_strategy epoch \
+  --onehot True \
 
