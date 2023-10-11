@@ -32,19 +32,18 @@ import datasets
 import pandas as pd
 import torch
 import transformers
+import wandb
 from datasets import load_dataset
 from tokenizers.pre_tokenizers import WhitespaceSplit
-from transformers import (AdamW, AutoConfig, AutoTokenizer, CONFIG_MAPPING, EarlyStoppingCallback, HfArgumentParser,
-                          MODEL_FOR_CAUSAL_LM_MAPPING, Trainer, TrainerCallback, TrainerControl, TrainerState,
-                          TrainingArguments,
-                          default_data_collator, set_seed)
+from transformers import AdamW, AutoConfig, AutoTokenizer, CONFIG_MAPPING, EarlyStoppingCallback, HfArgumentParser, \
+	MODEL_FOR_CAUSAL_LM_MAPPING, Trainer, TrainerCallback, TrainerControl, TrainerState, TrainingArguments, \
+	default_data_collator, set_seed
 from transformers.trainer_utils import get_last_checkpoint
 from transformers.utils.versions import require_version
 
-import wandb
 from modeling_gated_gpt2 import GPT2Model
 from modeling_gpt2_dp import GPT2ForDiagnosticProbing
-from utils import LABEL_DICT, convert_gate_to_mask, transform_dict
+from utils import LABEL_DICT, convert_gate_to_mask, set_gpu_env, transform_dict
 
 # Will error if the minimal version of Transformers is not installed. Remove at your own risks.
 # check_min_version("4.13.0.dev0")
@@ -59,6 +58,9 @@ MODEL_TYPES = tuple(conf.model_type for conf in MODEL_CONFIG_CLASSES)
 MAX_LENGTH = {'pos': 350, 'const': 350, 'ner': 350, 'coref': 280, 'srl': 350}
 MAX_TARGET = {'pos': 275, 'const': 175, 'ner': 71, 'coref': 300, 'srl': 11}
 IS_UNARY = {'pos': True, 'const': True, 'ner': True, 'coref': False, 'srl': False}
+
+NUM_GPU: int = 1
+device = set_gpu_env(num_gpus=NUM_GPU)
 
 
 @dataclass
@@ -256,7 +258,6 @@ class DataTrainingArguments:
 		)
 
 
-
 # Define a callback to save evaluation results in a csv file
 eval_results_df = pd.DataFrame(columns=["epoch", "eval_accuracy", "eval_loss"])
 
@@ -364,9 +365,14 @@ def main():
 		name=serial,
 		# group=group_name,
 		)
+
+	# Set up training arguments
 	training_args.report_to = ["wandb"]
 	training_args.logging_steps = 50
 	training_args.run_name = serial
+	training_args.load_best_model_at_end = True
+	training_args.metric_for_best_model = "eval_loss"
+	training_args.save_total_limit = 1
 
 	wandb.log(transform_dict(asdict(model_args)))
 	wandb.log(transform_dict(asdict(data_args)))
@@ -482,8 +488,8 @@ def main():
 	config.saturated = model_args.saturated
 	config.onehot = model_args.onehot
 	if config.onehot:
+		# config.n_embd = model_args.mlp_dim
 		logger.info("Using onehot embeddings.")
-
 
 	if model_args.gpt2_name_or_path:
 		gpt2 = GPT2Model.from_pretrained(
@@ -671,6 +677,7 @@ def main():
 	# Modify output dir
 	training_args.output_dir = os.path.join(training_args.output_dir, wandb_proj_name, serial)
 
+	model.to(device)
 	# Initialize our Trainer
 	trainer = Trainer(
 		model=model,

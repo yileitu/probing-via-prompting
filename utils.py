@@ -1,4 +1,4 @@
-from typing import Any, Dict
+from typing import Any, Dict, List
 
 import torch
 
@@ -141,3 +141,67 @@ def rescale_norm(x: torch.Tensor, norm: float) -> torch.Tensor:
 	"""
 	return x / torch.norm(x) * norm
 
+
+def get_total_gpus() -> int:
+	"""
+	Get total number of GPUs in the server
+	:return: number of GPUs
+	"""
+	import subprocess
+
+	sp = subprocess.Popen(['nvidia-smi', '--list-gpus'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+	out_str = sp.communicate()
+	out_list = out_str[0].decode("utf-8").split('\n')
+	# Subtract one as the last line is empty
+	num_gpus = len(out_list) - 1
+	print(f"... {num_gpus} GPUs found")
+	return num_gpus
+
+
+def get_idle_gpus(num_gpus: int = 2) -> List[int]:
+	"""
+	Get idle GPUs in the server
+	:param num_gpus: requested number of GPUs
+	:return: list of idle GPU IDs
+	"""
+	import operator
+	import subprocess
+
+	total_gpus = get_total_gpus()
+	if num_gpus > total_gpus:
+		raise ValueError(f'Requested number of GPUs ({num_gpus}) exceeds available GPUs ({total_gpus})')
+
+	sp = subprocess.Popen(
+		['nvidia-smi', '--format=csv', '--query-gpu=utilization.gpu'], stdout=subprocess.PIPE, stderr=subprocess.PIPE
+		)
+	out_str = sp.communicate()
+	out_list = out_str[0].decode("utf-8").split('\n')
+	gpu_utilization = []
+	for i, gpu in enumerate(out_list[1:-1]):
+		utilization = int(gpu.split(' ')[0])
+		gpu_utilization.append((i, utilization))
+	sorted_gpus = sorted(gpu_utilization, key=operator.itemgetter(1))
+	idle_gpus = [gpu[0] for gpu in sorted_gpus[:num_gpus]]
+	return idle_gpus
+
+
+def set_gpu_env(num_gpus: int = 1):
+	"""
+	Set GPU environments in the server
+	:param num_gpus: number of GPUs to use
+	:return: PyTorch device
+	"""
+	import os
+	import torch
+
+	idle_gpus = get_idle_gpus(num_gpus)
+	os.environ["CUDA_VISIBLE_DEVICES"] = ','.join(map(str, idle_gpus))
+	print(f"... Available GPUs {idle_gpus}")
+	# list available GPUs
+	gpu_list = [torch.cuda.get_device_name(i) for i in range(torch.cuda.device_count())]
+	print(f"... {len(gpu_list)} visible 'logical' GPUs: {gpu_list}")
+	# Set up GPUs for multi-GPU training
+	device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+	print(f"... using {device}")
+
+	return device
