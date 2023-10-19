@@ -5,11 +5,23 @@ import pandas as pd
 
 DELTA_EPOCH: int = 10
 CONVERGENCE_THRESHOLD: float = 0.001
-DIM: int = 512
-LAYER: int = 128
-LEN: int = 100
+DIM: int = 4096
+LAYER: int = 8
+LEN: int = 50
 # LR: str = "0.0001"
-LR: str = "5e-06"
+LR: str = "1e-05"
+RLM: bool = True
+WIDE: bool = True
+
+if RLM:
+	LM_MODE = "Randomized"
+else:
+	LM_MODE = "Pretrained"
+
+if WIDE:
+	WIDE_PATH = "Wide/"
+else:
+	WIDE_PATH = ""
 
 
 # def find_convergence_point(accuracies: List[float], window_size: int = 16, threshold=1e-4):
@@ -70,12 +82,12 @@ def find_convergence_epoch(accuracy_data: List[float], early_stopping_patience: 
 	return None
 
 
-dev_acc_df = pd.read_csv(
-	f'/Users/tuyilei/Desktop/NLP_SP/probing-via-prompting/outputs/dp/mlp/ner/ConvergedProbe-ner-DPMLP-Dim{DIM}-Layer{LAYER}/Epoch256-LR{LR}-Randomized-Dev/eval_results.csv'
-	)
 # dev_acc_df = pd.read_csv(
-# 	f'/Users/tuyilei/Desktop/NLP_SP/probing-via-prompting/outputs/pp/ner/ConvergedProbe-ner-PP-Len{LEN}/Epoch256-LR{LR}-Randomized-Test/eval_results.csv'
+# 	f'/Users/tuyilei/Desktop/NLP_SP/probing-via-prompting/outputs/dp/mlp/ner/{WIDE_PATH}ConvergedProbe-ner-DPMLP-Dim{DIM}-Layer{LAYER}/Epoch256-LR{LR}-{LM_MODE}-Dev/eval_results.csv'
 # 	)
+dev_acc_df = pd.read_csv(
+	f'/Users/tuyilei/Desktop/NLP_SP/probing-via-prompting/outputs/pp/ner/ConvergedProbe-ner-PP-Len{LEN}/Epoch256-LR{LR}-Randomized-Dev/eval_results.csv'
+	)
 # dev_acc_df = pd.read_csv(
 # 	f'/Users/tuyilei/Desktop/NLP_SP/probing-via-prompting/outputs/dp/lr/ner/ConvergedProbe-ner-DPLR/Epoch256-LR{LR}-Randomized-Dev/eval_results.csv'
 # 	)
@@ -153,21 +165,24 @@ if convergence:
 else:
 	print("Convergence not found.")
 
+# test_acc_df = pd.read_csv(
+# 	f'/Users/tuyilei/Desktop/NLP_SP/probing-via-prompting/outputs/dp/mlp/ner/{WIDE_PATH}ConvergedProbe-ner-DPMLP-Dim{DIM}-Layer{LAYER}/Epoch256-LR{LR}-{LM_MODE}-Test/eval_results.csv'
+# 	)
 test_acc_df = pd.read_csv(
-	f'/Users/tuyilei/Desktop/NLP_SP/probing-via-prompting/outputs/dp/mlp/ner/ConvergedProbe-ner-DPMLP-Dim{DIM}-Layer{LAYER}/Epoch256-LR{LR}-Randomized-Test/eval_results.csv'
+	f'/Users/tuyilei/Desktop/NLP_SP/probing-via-prompting/outputs/pp/ner/ConvergedProbe-ner-PP-Len{LEN}/Epoch256-LR{LR}-Randomized-Test/eval_results.csv'
 	)
 test_conv_acc = test_acc_df['eval_accuracy'][conv_idx]
 print(f"Test: Convergence at epoch {conv_epoch}, with accuracy {test_conv_acc:.4f}.")
 
-# Plot the fitted curve and the original data on the same plot
-import matplotlib.pyplot as plt
-fig, ax = plt.subplots(figsize=(8, 6))
-ax.plot(range(len(dev_acc)), dev_acc, marker='o', markersize=4, linestyle='-', label='Original data')
-# ax.plot(range(len(dev_acc)), , color= 'r', linewidth=2, linestyle= '-', label= 'Fitted curve')
-ax.legend(fontsize=12)
-ax.set_xlabel('Epoch', fontsize=14)
-ax.set_ylabel('Accuracy', fontsize=14)
-ax.tick_params(axis='both', which='major', labelsize=12)
-ax.set_title('Accuracy vs Epoch', fontsize=16)
-ax.grid(True)
-plt.show()
+# # Plot the fitted curve and the original data on the same plot
+# import matplotlib.pyplot as plt
+# fig, ax = plt.subplots(figsize=(8, 6))
+# ax.plot(range(len(dev_acc)), dev_acc, marker='o', markersize=4, linestyle='-', label='Original data')
+# # ax.plot(range(len(dev_acc)), , color= 'r', linewidth=2, linestyle= '-', label= 'Fitted curve')
+# ax.legend(fontsize=12)
+# ax.set_xlabel('Epoch', fontsize=14)
+# ax.set_ylabel('Accuracy', fontsize=14)
+# ax.tick_params(axis='both', which='major', labelsize=12)
+# ax.set_title('Accuracy vs Epoch', fontsize=16)
+# ax.grid(True)
+# plt.show()
