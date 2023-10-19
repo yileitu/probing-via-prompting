@@ -105,14 +105,12 @@ class GPT2ForDiagnosticProbing(GPT2PreTrainedModel):
 			if self.mlp_layers == 1:
 				self.classifier = nn.Sequential(
 					nn.Linear(self.d_inp, self.mlp_dim),
-					nn.Tanh(),
 					nn.Linear(self.mlp_dim, self.num_labels)
 					)
 			elif self.mlp_layers >= 2:
 				lin_module_list.append(nn.Linear(self.d_inp, self.mlp_dim))
 				for _ in range(self.mlp_layers - 1):
 					lin_module_list.append(nn.Linear(self.mlp_dim, self.mlp_dim))
-				lin_module_list.append(nn.Tanh())  # Only add activation function in the last layer
 				lin_module_list.append(nn.Linear(self.mlp_dim, self.num_labels))
 				self.classifier = nn.Sequential(*lin_module_list)
 		else:
@@ -183,34 +181,16 @@ class GPT2ForDiagnosticProbing(GPT2PreTrainedModel):
 				output_hidden_states=True,
 				return_dict=True,
 				)
-		else:
-			# Extract the embeddings from GPT2 and then pass them as input to the probe
-			input_shape = input_ids.size()
-			contextual_embeddings = torch.nn.functional.one_hot(input_ids, num_classes=self.config.vocab_size).half()
-
-			# hidden_states = inputs_embeds
-			# if token_type_ids is not None:
-			# 	token_type_embeds = self.transformer.wte(token_type_ids)
-			# 	hidden_states = hidden_states + token_type_embeds
-			# hidden_states = self.transformer.drop(hidden_states)
-			# output_shape = input_shape + (hidden_states.size(-1),)
-			# hidden_states = self.transformer.ln_f(hidden_states)
-			# hidden_states = hidden_states.view(*output_shape)
-
-		if not self.use_mlp:
-			contextual_embeddings = transformer_outputs[0]
-		else:
-			if self.onehot is False:
+			if not self.use_mlp:
+				contextual_embeddings = transformer_outputs[0]
+			else:
 				all_hidden_states = transformer_outputs.hidden_states[1:]
 				contextual_embeddings = self.scalar_mix(all_hidden_states)
-			# else:
-			# 	# all_hidden_states = ()
-			# 	# all_hidden_states += (hidden_states,)
-			# 	# contextual_embeddings = self.onehot_scalar_mix(all_hidden_states)
-			# 	contextual_embeddings = hidden_states
+		else:
+			contextual_embeddings = torch.nn.functional.one_hot(input_ids, num_classes=self.config.vocab_size).half()
+
 
 		span_mask = span1s[:, :, 0] != -1
-
 		se_proj1 = self.proj1(contextual_embeddings.transpose(1, 2)).transpose(2, 1).contiguous()
 		span1_emb = self.span_extractor1(se_proj1, span1s, span_indices_mask=span_mask.long())
 		if not self.unary:
@@ -221,7 +201,7 @@ class GPT2ForDiagnosticProbing(GPT2PreTrainedModel):
 			span_emb = span1_emb
 
 		logits = self.classifier(span_emb)
-		loss_fct = CrossEntropyLoss()
+		loss_fct = CrossEntropyLoss()  #
 		loss = loss_fct(logits[span_mask], labels[span_mask])
 
 		corrections = logits[span_mask].argmax(-1) == labels[span_mask]
