@@ -76,6 +76,18 @@ class ModelArguments:
 			        "Don't set if you want to train a model from scratch."
 			},
 		)
+	chinese: bool = field(
+		default=False,
+		metadata={
+			"help": "Whether to use GPT2-Chinese model."
+			},
+		)
+	german: bool = field(
+		default=False,
+		metadata={
+			"help": "Whether to use GPT2-german model."
+			},
+		)
 	model_path: Optional[str] = field(
 		default=None,
 		metadata={
@@ -293,6 +305,12 @@ def main():
 		model_args, data_args, training_args = parser.parse_args_into_dataclasses()
 
 	# # Post-processing
+	# GPT-2 English or Chinese:
+	if model_args.german:
+		model_args.gpt2_name_or_path = "dbmdz/german-gpt2"
+	elif model_args.chinese:
+		model_args.gpt2_name_or_path = "uer/gpt2-chinese-cluecorpussmall"
+
 	# Pretrained or Randomized
 	if model_args.randomized or model_args.mod_randomized or model_args.agg_mod_rand or model_args.fine_mod_rand \
 			or model_args.norm_mod_rand:
@@ -329,6 +347,13 @@ def main():
 
 	if model_args.onehot:
 		wandb_proj_name += "-OneHot"
+
+	if model_args.chinese:
+		wandb_proj_name += "-Chinese"
+		training_args.output_dir += "Chinese/"
+	elif model_args.german:
+		wandb_proj_name += "-German"
+		training_args.output_dir += "German/"
 
 	# CONCERN: 写得不优美，先用verbose代替处理如何控制wandb分组
 	if model_args.verbose == 1 and model_args.mod_randomized:
@@ -371,7 +396,8 @@ def main():
 	training_args.logging_steps = 50
 	training_args.run_name = serial
 	training_args.load_best_model_at_end = True
-	training_args.metric_for_best_model = "eval_loss"
+	training_args.metric_for_best_model = "eval_accuracy"
+	training_args.greater_is_better = True
 	training_args.save_total_limit = 1
 
 	wandb.log(transform_dict(asdict(model_args)))
@@ -416,16 +442,6 @@ def main():
 	# Set seed before initializing model.
 	set_seed(training_args.seed)
 
-	# Get the datasets: you can either provide your own CSV/JSON/TXT training and evaluation files (see below)
-	# or just provide the name of one of the public datasets available on the hub at https://huggingface.co/datasets/
-	# (the dataset will be downloaded automatically from the datasets Hub).
-	#
-	# For CSV/JSON files, this script will use the column called 'text' or the first column if no column called
-	# 'text' is found. You can easily tweak this behavior (see below).
-	#
-	# In distributed training, the load_dataset function guarantee that only one local process can concurrently
-	# download the dataset.
-
 	data_files = {}
 	dataset_args = {}
 	logger.info("Loading data for {}".format(data_args.task))
@@ -461,6 +477,7 @@ def main():
 		config = AutoConfig.from_pretrained(model_args.config_name, **config_kwargs)
 	elif model_args.gpt2_name_or_path:
 		config = AutoConfig.from_pretrained(model_args.gpt2_name_or_path, **config_kwargs)
+		logger.info(f"Model config loaded from pretrained ckpt {model_args.gpt2_name_or_path}")
 	else:
 		config = CONFIG_MAPPING[model_args.model_type]()
 		logger.warning("You are instantiating a new config instance from scratch.")
@@ -497,6 +514,7 @@ def main():
 			cache_dir=model_args.cache_dir,
 			config=config
 			)
+		logger.info(f"Model loaded from pretrained ckpt {model_args.gpt2_name_or_path}")
 	elif model_args.randomized:
 		gpt2 = GPT2Model(config)
 		n_params = sum(dict((p.data_ptr(), p.numel()) for p in gpt2.parameters()).values())
