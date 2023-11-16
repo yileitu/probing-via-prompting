@@ -173,5 +173,5 @@ if __name__ == "__main__":
 		datapoint_df = pd.DataFrame([datapoint])
 		gpt_module_stat_df = pd.concat([gpt_module_stat_df, datapoint_df])
 
-	gpt_module_stat_df.to_csv("gpt_module_norm.csv")
+	gpt_module_stat_df.to_csv("tables/gpt_module_norm.csv")
 

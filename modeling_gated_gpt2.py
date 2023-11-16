@@ -656,7 +656,7 @@ class GPT2Model(GPT2PreTrainedModel):
 		MATCH_RULE: str = r"h\.\d{1,2}"  # Match prefix "h.1" format
 		MEAN_COL_NAME: str = "mean"
 		STD_COL_NAME: str = "std"
-		weights_df = pd.read_csv("gpt_module_agg_stat.csv")
+		weights_df = pd.read_csv("tables/gpt_module_agg_stat.csv")
 
 		for name, module in self.named_modules():
 			matched = re.match(MATCH_RULE, name)
@@ -702,7 +702,7 @@ class GPT2Model(GPT2PreTrainedModel):
 		print("Execute init_weights_fine_mod()")
 		MEAN_COL_NAME: str = "mean"
 		STD_COL_NAME: str = "std"
-		weights_df = pd.read_csv("gpt_module_stat.csv")
+		weights_df = pd.read_csv("tables/gpt_module_stat.csv")
 
 		for name, module in self.named_modules():
 			if name == 'wte' or name == 'wpe':
@@ -749,7 +749,7 @@ class GPT2Model(GPT2PreTrainedModel):
 
 	def init_weights_norm_mod(self):
 		print("Execute init_weights_norm_mod()")
-		norm_df = pd.read_csv("gpt_module_norm.csv")
+		norm_df = pd.read_csv("tables/gpt_module_norm.csv")
 
 		for name, module in self.named_modules():
 			if name == 'wte' or name == 'wpe':

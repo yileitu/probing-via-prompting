@@ -201,7 +201,7 @@ class GPT2ForDiagnosticProbing(GPT2PreTrainedModel):
 			span_emb = span1_emb
 
 		logits = self.classifier(span_emb)
-		loss_fct = CrossEntropyLoss()  #
+		loss_fct = CrossEntropyLoss()
 		loss = loss_fct(logits[span_mask], labels[span_mask])
 
 		corrections = logits[span_mask].argmax(-1) == labels[span_mask]
