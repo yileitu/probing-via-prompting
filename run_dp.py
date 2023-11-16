@@ -32,15 +32,16 @@ import datasets
 import pandas as pd
 import torch
 import transformers
-import wandb
 from datasets import load_dataset
 from tokenizers.pre_tokenizers import WhitespaceSplit
-from transformers import AdamW, AutoConfig, AutoTokenizer, CONFIG_MAPPING, EarlyStoppingCallback, HfArgumentParser, \
-	MODEL_FOR_CAUSAL_LM_MAPPING, Trainer, TrainerCallback, TrainerControl, TrainerState, TrainingArguments, \
+from transformers import AdamW, AutoConfig, AutoTokenizer, BertTokenizer, CONFIG_MAPPING, EarlyStoppingCallback, \
+	HfArgumentParser, MODEL_FOR_CAUSAL_LM_MAPPING, Trainer, TrainerCallback, TrainerControl, TrainerState, \
+	TrainingArguments, \
 	default_data_collator, set_seed
 from transformers.trainer_utils import get_last_checkpoint
 from transformers.utils.versions import require_version
 
+import wandb
 from modeling_gated_gpt2 import GPT2Model
 from modeling_gpt2_dp import GPT2ForDiagnosticProbing
 from utils import LABEL_DICT, convert_gate_to_mask, set_gpu_env, transform_dict
@@ -58,7 +59,6 @@ MODEL_TYPES = tuple(conf.model_type for conf in MODEL_CONFIG_CLASSES)
 MAX_LENGTH = {'pos': 350, 'const': 350, 'ner': 350, 'coref': 280, 'srl': 350}
 MAX_TARGET = {'pos': 275, 'const': 175, 'ner': 71, 'coref': 300, 'srl': 11}
 IS_UNARY = {'pos': True, 'const': True, 'ner': True, 'coref': False, 'srl': False}
-
 
 
 @dataclass
@@ -315,6 +315,12 @@ def main():
 		model_args.gpt2_name_or_path = None
 		model_args.config_name = "gpt2"
 		model_args.tokenizer_name = "gpt2"
+		if model_args.german:
+			model_args.config_name = "dbmdz/german-gpt2"
+			model_args.tokenizer_name = "dbmdz/german-gpt2"
+		elif model_args.chinese:
+			model_args.config_name = "uer/gpt2-chinese-cluecorpussmall"
+			model_args.tokenizer_name = "uer/gpt2-chinese-cluecorpussmall"
 
 	# Determine the default experiment serial
 	serial = f"Epoch{int(training_args.num_train_epochs)}-LR{training_args.learning_rate}-"
@@ -375,6 +381,7 @@ def main():
 		wandb_proj_name = f"Probe-{data_args.task}-DP-MLP-NormModRand"
 		group_name = f"Dim{model_args.mlp_dim}-Layer{model_args.mlp_layers}-Epoch{int(training_args.num_train_epochs)}"
 		serial = f"LR{training_args.learning_rate}-NormModRand"
+	serial += f"-Seed{training_args.seed}"
 
 	os.environ["WANDB_PROJECT"] = wandb_proj_name
 	wandb.init(
@@ -486,7 +493,11 @@ def main():
 		"use_auth_token": True if model_args.use_auth_token else None,
 		}
 	if model_args.tokenizer_name:
-		tokenizer = AutoTokenizer.from_pretrained(model_args.tokenizer_name, **tokenizer_kwargs)
+		if model_args.chinese:
+			tokenizer = BertTokenizer.from_pretrained(model_args.tokenizer_name, **tokenizer_kwargs)
+		else:
+			tokenizer = AutoTokenizer.from_pretrained(model_args.tokenizer_name, **tokenizer_kwargs)
+
 	elif model_args.gpt2_name_or_path:
 		tokenizer = AutoTokenizer.from_pretrained(model_args.gpt2_name_or_path, **tokenizer_kwargs)
 	else:
