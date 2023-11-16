@@ -14,7 +14,7 @@ from transformers import AdamW, AutoConfig, EarlyStoppingCallback, GPT2Model, GP
 	HfArgumentParser, Trainer, TrainerCallback, TrainerControl, TrainerState, TrainingArguments, default_data_collator, \
 	set_seed
 
-from arguments import DataTrainingArguments, ModelArguments
+from dp_arguments import DataTrainingArguments, ModelArguments
 from utils import record_num_of_params, setup_logger, setup_wandb
 
 PADDING_LABEL_ID = -100

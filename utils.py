@@ -10,7 +10,7 @@ import transformers
 import wandb
 from transformers import TrainingArguments
 
-from arguments import DataTrainingArguments, ModelArguments
+from dp_arguments import DataTrainingArguments, ModelArguments
 
 LABEL_DICT = {}
 LABEL_DICT['ner'] = ['CARDINAL', 'DATE', 'EVENT', 'FAC', 'GPE', 'LANGUAGE',

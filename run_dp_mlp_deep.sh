@@ -38,6 +38,7 @@ python3 run_dp.py \
   --dev \
   --save_strategy epoch \
   --evaluation_strategy epoch \
-  --chinese True \
+  --japanese True \
+#  --chinese True \
 #  --german True \
 

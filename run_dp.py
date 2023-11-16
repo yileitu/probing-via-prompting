@@ -35,7 +35,8 @@ import transformers
 from datasets import load_dataset
 from tokenizers.pre_tokenizers import WhitespaceSplit
 from transformers import AdamW, AutoConfig, AutoTokenizer, BertTokenizer, CONFIG_MAPPING, EarlyStoppingCallback, \
-	HfArgumentParser, MODEL_FOR_CAUSAL_LM_MAPPING, Trainer, TrainerCallback, TrainerControl, TrainerState, \
+	HfArgumentParser, MODEL_FOR_CAUSAL_LM_MAPPING, Trainer, TrainerCallback, TrainerControl, \
+	TrainerState, \
 	TrainingArguments, \
 	default_data_collator, set_seed
 from transformers.trainer_utils import get_last_checkpoint
@@ -44,7 +45,8 @@ from transformers.utils.versions import require_version
 import wandb
 from modeling_gated_gpt2 import GPT2Model
 from modeling_gpt2_dp import GPT2ForDiagnosticProbing
-from utils import LABEL_DICT, convert_gate_to_mask, set_gpu_env, transform_dict
+from utils import LABEL_DICT, convert_gate_to_mask, record_num_of_params, set_gpu_env, transform_dict
+from dp_arguments import ModelArguments, DataTrainingArguments
 
 # Will error if the minimal version of Transformers is not installed. Remove at your own risks.
 # check_min_version("4.13.0.dev0")
@@ -60,212 +62,9 @@ MAX_LENGTH = {'pos': 350, 'const': 350, 'ner': 350, 'coref': 280, 'srl': 350}
 MAX_TARGET = {'pos': 275, 'const': 175, 'ner': 71, 'coref': 300, 'srl': 11}
 IS_UNARY = {'pos': True, 'const': True, 'ner': True, 'coref': False, 'srl': False}
 
-
-@dataclass
-class ModelArguments:
-	"""
-	Arguments pertaining to which model/config/tokenizer we are going to fine-tune, or train from scratch.
-	"""
-
-	gpt2_name_or_path: Optional[str] = field(
-		default=None,
-		metadata={
-			"help": "The model checkpoint for weights initialization."
-			        "Don't set if you want to train a model from scratch."
-			},
-		)
-	chinese: bool = field(
-		default=False,
-		metadata={
-			"help": "Whether to use GPT2-Chinese model."
-			},
-		)
-	german: bool = field(
-		default=False,
-		metadata={
-			"help": "Whether to use GPT2-german model."
-			},
-		)
-	model_path: Optional[str] = field(
-		default=None,
-		metadata={
-			"help": "Path to trained model."
-			        "Don't set if you want to train a model from scratch."
-			},
-		)
-	model_type: Optional[str] = field(
-		default=None,
-		metadata={"help": "If training from scratch, pass a model type from the list: " + ", ".join(MODEL_TYPES)},
-		)
-	config_overrides: Optional[str] = field(
-		default=None,
-		metadata={
-			"help": "Override some existing default config settings when a model is trained from scratch. Example: "
-			        "n_embd=10,resid_pdrop=0.2,scale_attn_weights=false,summary_type=cls_index"
-			},
-		)
-	config_name: Optional[str] = field(
-		default=None, metadata={"help": "Pretrained config name or path if not the same as model_name"}
-		)
-	tokenizer_name: Optional[str] = field(
-		default=None, metadata={"help": "Pretrained tokenizer name or path if not the same as model_name"}
-		)
-	cache_dir: Optional[str] = field(
-		default='cache/',
-		metadata={"help": "Where do you want to store the pretrained models downloaded from huggingface.co"},
-		)
-	use_fast_tokenizer: bool = field(
-		default=True,
-		metadata={"help": "Whether to use one of the fast tokenizer (backed by the tokenizers library) or not."},
-		)
-	model_revision: str = field(
-		default="main",
-		metadata={"help": "The specific model version to use (can be a branch name, tag name or commit id)."},
-		)
-	use_auth_token: bool = field(
-		default=False,
-		metadata={
-			"help": "Will use the token generated when running `transformers-cli login` (necessary to use this script "
-			        "with private models)."
-			},
-		)
-	use_mlp: bool = field(
-		default=True,
-		metadata={
-			"help": "use mlp or linear regression"
-			},
-		)
-	mlp_dropout: Optional[float] = field(
-		default=0.2,
-		metadata={"help": "Dropout in MLP model."},
-		)
-	mlp_dim: Optional[int] = field(
-		default=512,
-		metadata={"help": "Dimension of hidden states of MLP model."},
-		)
-	mlp_layers: Optional[int] = field(
-		default=1,
-		metadata={"help": "The number of layers of MLP model."},
-		)
-	num_of_heads: Optional[int] = field(
-		default=96,
-		metadata={"help": "Number of heads left unpruned."},
-		)
-	pruning_lr: Optional[float] = field(
-		default=0.1,
-		metadata={"help": "Learning rate for head importance variables."},
-		)
-	do_prune: Optional[bool] = field(
-		default=False,
-		metadata={"help": "Whether heads are pruned."},
-		)
-	randomized: bool = field(
-		default=False,
-		metadata={
-			"help": "If true, load the architecture of the model only, without pretrained weights. "
-			        "By default (randomized=False), load the whole pretrained model."
-			},
-		)
-	dev: bool = field(
-		default=False,
-		metadata={
-			"help": "If true, use development dataset to do evaluation. Otherwise use test dataset."
-			},
-		)
-	mod_randomized: bool = field(
-		default=False,
-		metadata={
-			"help": "If true, load the architecture of the model only, without pretrained weights. "
-			        "Artificially specify how to initialize the weights, e.g., init_mean, init_std, etc."
-			},
-		)
-	agg_mod_rand: bool = field(
-		default=False,
-		metadata={
-			"help": "If true, load the architecture of the model only, without pretrained weights."
-			        "Initialize the weights head by head with predetermined parameters, e.g., abs_mean, abs_std, etc."
-			},
-		)
-	fine_mod_rand: bool = field(
-		default=False,
-		metadata={
-			"help": "If true, load the architecture of the model only, without pretrained weights."
-			        "Initialize the weights module by module with predetermined parameters, e.g., abs_mean, abs_std, etc."
-			},
-		)
-	norm_mod_rand: bool = field(
-		default=False,
-		metadata={
-			"help": "If true, load the architecture of the model only, without pretrained weights."
-			        "Initialize the weights module by module with specified norm."
-			},
-		)
-	init_mean: float = field(
-		default=0.0,
-		metadata={
-			"help": "Randomized model weight initialization mean"
-			},
-		)
-	init_std: float = field(
-		default=0.02,
-		metadata={
-			"help": "Randomized model weight initialization std"
-			},
-		)
-	verbose: int = field(
-		default=0,
-		metadata={
-			"help": "How to group wandb experiments."
-			},
-		)
-	saturated: bool = field(
-		default=False,
-		metadata={
-			"help": "Saturated attention mode."
-			},
-		)
-	onehot: bool = field(
-		default=False,
-		metadata={
-			"help": "If true, extract the embeddings from GPT2 and then pass them as input to the probe."
-			},
-		)
-
-
-@dataclass
-class DataTrainingArguments:
-	"""
-	Arguments pertaining to what data we are going to input our model for training and eval.
-	"""
-
-	data_dir: Optional[str] = field(
-		default=None, metadata={"help": "Where data is stored"}
-		)
-	task: Optional[str] = field(
-		default='ner',
-		metadata={"help": "Tasks, one or more of {pos, const, coref, ner, srl}."},
-		)
-	max_train_samples: Optional[int] = field(
-		default=None,
-		metadata={
-			"help": "For debugging purposes or quicker training, truncate the number of training examples to this "
-			        "value if set."
-			},
-		)
-	max_eval_samples: Optional[int] = field(
-		default=None,
-		metadata={
-			"help": "For debugging purposes or quicker training, truncate the number of evaluation examples to this "
-			        "value if set."
-			},
-		)
-	overwrite_cache: bool = field(
-		default=False, metadata={"help": "Overwrite the cached training and evaluation sets"}
-		)
-	preprocessing_num_workers: Optional[int] = field(
-		default=None,
-		metadata={"help": "The number of processes to use for the preprocessing."},
-		)
+GPT2_ZH_PATH = "uer/gpt2-chinese-cluecorpussmall"
+GPT2_DE_PATH = "dbmdz/german-gpt2"
+GPT2_JA_PATH = "rinna/japanese-gpt2-small"
 
 
 # Define a callback to save evaluation results in a csv file
@@ -305,23 +104,24 @@ def main():
 	# # Post-processing
 	# GPT-2 English or Chinese:
 	if model_args.german:
-		model_args.gpt2_name_or_path = "dbmdz/german-gpt2"
+		model_args.gpt2_name_or_path = GPT2_DE_PATH
+		model_args.config_name = GPT2_DE_PATH
+		model_args.tokenizer_name = GPT2_DE_PATH
 	elif model_args.chinese:
-		model_args.gpt2_name_or_path = "uer/gpt2-chinese-cluecorpussmall"
+		model_args.gpt2_name_or_path = GPT2_ZH_PATH
+		model_args.config_name = GPT2_ZH_PATH
+		model_args.tokenizer_name = GPT2_ZH_PATH
+	elif model_args.japanese:
+		model_args.gpt2_name_or_path = GPT2_JA_PATH
+		model_args.config_name = GPT2_JA_PATH
+		model_args.tokenizer_name = GPT2_JA_PATH
 
-	# Pretrained or Randomized
+	# Randomized
 	if model_args.randomized or model_args.mod_randomized or model_args.agg_mod_rand or model_args.fine_mod_rand \
 			or model_args.norm_mod_rand:
 		model_args.gpt2_name_or_path = None
 		model_args.config_name = "gpt2"
 		model_args.tokenizer_name = "gpt2"
-		if model_args.german:
-			model_args.config_name = "dbmdz/german-gpt2"
-			model_args.tokenizer_name = "dbmdz/german-gpt2"
-		elif model_args.chinese:
-			model_args.config_name = "uer/gpt2-chinese-cluecorpussmall"
-			model_args.tokenizer_name = "uer/gpt2-chinese-cluecorpussmall"
-
 	# Determine the default experiment serial
 	serial = f"Epoch{int(training_args.num_train_epochs)}-LR{training_args.learning_rate}-"
 	if model_args.randomized:
@@ -353,6 +153,9 @@ def main():
 	elif model_args.german:
 		wandb_proj_name += "-German"
 		training_args.output_dir += "German/"
+	elif model_args.japanese:
+		wandb_proj_name += "-Japanese"
+		training_args.output_dir += "Japanese/"
 
 	# CONCERN: 写得不优美，先用verbose代替处理如何控制wandb分组
 	if model_args.verbose == 1 and model_args.mod_randomized:
@@ -460,15 +263,6 @@ def main():
 		data_args.task = data_args.task.replace("_control", "")
 	label2id = {label: i for i, label in enumerate(LABEL_DICT[data_args.task])}
 
-	# See more about loading any type of standard or custom dataset (from files, python dict, pandas DataFrame, etc) at
-	# https://huggingface.co/docs/datasets/loading_datasets.html.
-
-	# Load pretrained model and tokenizer
-	#
-	# Distributed training:
-	# The .from_pretrained methods guarantee that only one local process can concurrently
-	# download model & vocab.
-
 	config_kwargs = {
 		"cache_dir"     : model_args.cache_dir,
 		"revision"      : model_args.model_revision,
@@ -486,6 +280,7 @@ def main():
 			logger.info(f"Overriding config: {model_args.config_overrides}")
 			config.update_from_string(model_args.config_overrides)
 
+	# Load tokenizer
 	tokenizer_kwargs = {
 		"cache_dir"     : model_args.cache_dir,
 		"use_fast"      : model_args.use_fast_tokenizer,
@@ -495,9 +290,12 @@ def main():
 	if model_args.tokenizer_name:
 		if model_args.chinese:
 			tokenizer = BertTokenizer.from_pretrained(model_args.tokenizer_name, **tokenizer_kwargs)
+			logger.info("Loaded tokenizer for GPT2-Chinese.")
+		elif model_args.japanese:
+			tokenizer = AutoTokenizer.from_pretrained(model_args.tokenizer_name, **tokenizer_kwargs)
+			logger.info("Loaded tokenizer for GPT2-Japanese.")
 		else:
 			tokenizer = AutoTokenizer.from_pretrained(model_args.tokenizer_name, **tokenizer_kwargs)
-
 	elif model_args.gpt2_name_or_path:
 		tokenizer = AutoTokenizer.from_pretrained(model_args.gpt2_name_or_path, **tokenizer_kwargs)
 	else:
@@ -505,14 +303,17 @@ def main():
 			"You are instantiating a new tokenizer from scratch. This is not supported by this script."
 			"You can do it from another script, save it, and load it from here, using --tokenizer_name."
 			)
+	tokenizer.pad_token = tokenizer.eos_token
+	pre_tokenizer = WhitespaceSplit()
+	tokenizer.pre_tokenizer = pre_tokenizer
 
 	config.num_labels = len(label2id)
 	config.saturated = model_args.saturated
 	config.onehot = model_args.onehot
 	if config.onehot:
-		# config.n_embd = model_args.mlp_dim
 		logger.info("Using onehot embeddings.")
 
+	# Load GPT2 model
 	if model_args.gpt2_name_or_path:
 		gpt2 = GPT2Model.from_pretrained(
 			model_args.gpt2_name_or_path,
@@ -558,7 +359,6 @@ def main():
 			abs_std = float(np.std(abs_values))
 			print(f"Mean: {mean}, Std: {std}")
 			print(f"Abs Mean: {abs_mean}, Abs Std: {abs_std}", '\n')
-
 	elif model_args.norm_mod_rand:
 		config.norm_mod_rand = True
 		gpt2 = GPT2Model(config)
@@ -566,18 +366,15 @@ def main():
 		logger.info(f"Training new gpt2 from scratch - Total size={n_params / 2 ** 20:.2f}M params")
 		logger.info(f"Norm modified weight initialization strategy.")
 
+	# Load self-defined GPT-DP model
 	gpt2.resize_token_embeddings(len(tokenizer))
-
-	if model_args.model_path:
-		config = AutoConfig.from_pretrained(model_args.model_path, cache_dir=model_args.cache_dir)
-		model = GPT2ForDiagnosticProbing.from_pretrained(model_args.model_path, config=config, gpt2=gpt2)
-	else:
-		config.mlp_dropout = model_args.mlp_dropout
-		config.mlp_dim = model_args.mlp_dim
-		config.mlp_layers = model_args.mlp_layers
-		config.unary = IS_UNARY[data_args.task]
-		config.use_mlp = model_args.use_mlp
-		model = GPT2ForDiagnosticProbing(config, gpt2)
+	config.mlp_dropout = model_args.mlp_dropout
+	config.mlp_dim = model_args.mlp_dim
+	config.mlp_layers = model_args.mlp_layers
+	config.unary = IS_UNARY[data_args.task]
+	config.use_mlp = model_args.use_mlp
+	model = GPT2ForDiagnosticProbing(config, gpt2)
+	record_num_of_params(model, logger)
 
 	# Preprocessing the datasets.
 	# First we tokenize all the texts.
@@ -585,21 +382,6 @@ def main():
 		column_names = raw_datasets["train"].column_names
 	else:
 		column_names = raw_datasets["validation"].column_names
-
-	# since this will be pickled to avoid _LazyModule error in Hasher force logger loading before tokenize_function
-	tok_logger = transformers.utils.logging.get_logger("transformers.tokenization_utils_base")
-
-	tokenizer.pad_token = tokenizer.eos_token
-	pre_tokenizer = WhitespaceSplit()
-	tokenizer.pre_tokenizer = pre_tokenizer
-
-	# Record num of params
-	num_trainable_params = model.num_parameters(only_trainable=True)
-	num_total_params = model.num_parameters()
-	logger.info(f"Number of parameters to train (without adapters): {num_trainable_params}")
-	logger.info(f"Total number of parameters (without adapters): {num_total_params}")
-	wandb.run.summary["num_trainable_params"] = num_trainable_params
-	wandb.run.summary["num_total_params"] = num_total_params
 
 	def convert_span(result, pre_tokenized_str, span):
 		char_start = pre_tokenized_str[span[0]][1][0]

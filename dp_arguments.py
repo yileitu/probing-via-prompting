@@ -2,16 +2,12 @@
 from dataclasses import dataclass, field
 from typing import Optional
 
-
 @dataclass
 class ModelArguments:
 	"""
 	Arguments pertaining to which model/config/tokenizer we are going to fine-tune, or train from scratch.
 	"""
-	n_gpu: Optional[int] = field(
-		default=1,
-		metadata={"help": "How many gpus to use"}
-		)
+
 	gpt2_name_or_path: Optional[str] = field(
 		default=None,
 		metadata={
@@ -28,7 +24,13 @@ class ModelArguments:
 	german: bool = field(
 		default=False,
 		metadata={
-			"help": "Whether to use GPT2-german model."
+			"help": "Whether to use GPT2-German model."
+			},
+		)
+	japanese: bool = field(
+		default=False,
+		metadata={
+			"help": "Whether to use GPT2-Japanese model."
 			},
 		)
 	model_path: Optional[str] = field(
@@ -38,10 +40,10 @@ class ModelArguments:
 			        "Don't set if you want to train a model from scratch."
 			},
 		)
-	# model_type: Optional[str] = field(
-	# 	default=None,
-	# 	metadata={"help": "If training from scratch, pass a model type from the list: " + ", ".join(MODEL_TYPES)},
-	# 	)
+	model_type: Optional[str] = field(
+		default=None,
+		metadata={"help": "If training from scratch, pass a model type from the list: " + ", ".join(MODEL_TYPES)},
+		)
 	config_overrides: Optional[str] = field(
 		default=None,
 		metadata={
