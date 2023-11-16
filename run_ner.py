@@ -345,7 +345,7 @@ if __name__ == '__main__':
 		metrics["train_samples"] = len(train_dataset)
 		logger.info(f"*** Train Metrics *** \n{metrics}")
 
-	# Evaluation
+	# Testing
 	if training_args.do_eval:
 		logger.info("*** Evaluate ***")
 		logger.info(
