@@ -1,8 +1,5 @@
 # -*- coding: utf-8 -*-
-from transformers import BertTokenizer, GPT2LMHeadModel, TextGenerationPipeline
+from transformers import GPT2TokenizerFast
 
-tokenizer = BertTokenizer.from_pretrained("uer/gpt2-chinese-cluecorpussmall")
-model = GPT2LMHeadModel.from_pretrained("uer/gpt2-chinese-cluecorpussmall")
-text_generator = TextGenerationPipeline(model, tokenizer)
-ans = text_generator("这是很久之前的事情了", max_length=100, do_sample=True)
-print(ans)
+tokenizer = GPT2TokenizerFast.from_pretrained("gpt2")
+print("Is this tokenizer fast (Rust-based)?:", tokenizer.is_fast)

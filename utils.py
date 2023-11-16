@@ -1,6 +1,16 @@
+import logging
+import os
+import sys
+from logging import Logger
 from typing import Any, Dict, List
 
+import datasets
 import torch
+import transformers
+import wandb
+from transformers import TrainingArguments
+
+from arguments import DataTrainingArguments, ModelArguments
 
 LABEL_DICT = {}
 LABEL_DICT['ner'] = ['CARDINAL', 'DATE', 'EVENT', 'FAC', 'GPE', 'LANGUAGE',
@@ -205,3 +215,72 @@ def set_gpu_env(num_gpus: int = 1):
 	print(f"... using {device}")
 
 	return device
+
+
+def compute_metrics(eval_pred):
+	accuracy, _ = eval_pred
+	accuracy = accuracy.sum(axis=0)
+	accuracy = accuracy[0] / accuracy[1]
+	return {"accuracy": accuracy}
+
+
+def setup_logger(training_args: TrainingArguments) -> Logger:
+	logger: Logger = logging.getLogger(__name__)
+	logging.basicConfig(
+		format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",
+		datefmt="%m/%d/%Y %H:%M:%S",
+		handlers=[logging.StreamHandler(sys.stdout)],
+		)
+	log_level = training_args.get_process_log_level()
+	logger.setLevel(log_level)
+	datasets.utils.logging.set_verbosity(log_level)
+	transformers.utils.logging.set_verbosity(log_level)
+	transformers.utils.logging.enable_default_handler()
+	transformers.utils.logging.enable_explicit_format()
+
+	# Log on each process the small summary:
+	logger.warning(
+		f"Process rank: {training_args.local_rank}\n device: {training_args.device}\n n_gpu: {training_args.n_gpu} \n"
+		f"distributed training: {bool(training_args.local_rank != -1)}\n 16-bits training: {training_args.fp16}"
+		)
+	logger.info(f"Training/evaluation parameters {training_args}")
+
+	return logger
+
+
+def setup_wandb(training_args: TrainingArguments, model_args: ModelArguments, data_args: DataTrainingArguments) -> str:
+	serial = f"Epoch{int(training_args.num_train_epochs)}-LR{training_args.learning_rate}-"
+	if model_args.randomized:
+		serial += "Randomized-"
+	else:
+		serial += "Pretrained-"
+
+	if model_args.dev:
+		serial += "Dev"
+	else:
+		serial += "Test"
+
+	# WanDB setup
+	if model_args.use_mlp:
+		wandb_proj_name = f"ConvergedProbe-{data_args.task}-DPMLP-Dim{model_args.mlp_dim}-Layer{model_args.mlp_layers}"
+	else:
+		wandb_proj_name = f"ConvergedProbe-{data_args.task}-DPLR-Dim{model_args.mlp_dim}-Layer{model_args.mlp_layers}"
+	if model_args.onehot:
+		wandb_proj_name += "-OneHot"
+
+	os.environ["WANDB_PROJECT"] = wandb_proj_name
+	wandb.init(
+		project=wandb_proj_name,
+		name=serial,
+		)
+
+	return serial
+
+
+def record_num_of_params(model, logger: Logger) -> None:
+	num_trainable_params = model.num_parameters(only_trainable=True)
+	num_total_params = model.num_parameters()
+	logger.info(f"Number of parameters to train (without adapters): {num_trainable_params}")
+	logger.info(f"Total number of parameters (without adapters): {num_total_params}")
+	wandb.run.summary["num_trainable_params"] = num_trainable_params
+	wandb.run.summary["num_total_params"] = num_total_params

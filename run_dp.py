@@ -59,8 +59,6 @@ MAX_LENGTH = {'pos': 350, 'const': 350, 'ner': 350, 'coref': 280, 'srl': 350}
 MAX_TARGET = {'pos': 275, 'const': 175, 'ner': 71, 'coref': 300, 'srl': 11}
 IS_UNARY = {'pos': True, 'const': True, 'ner': True, 'coref': False, 'srl': False}
 
-NUM_GPU: int = 1
-device = set_gpu_env(num_gpus=NUM_GPU)
 
 
 @dataclass
@@ -331,11 +329,6 @@ def main():
 	else:
 		serial += "Test"
 
-	if model_args.mod_randomized:
-		group_name = f"Mean{model_args.init_mean}-Std{model_args.init_std}"
-	else:
-		group_name = f"Epoch{int(training_args.num_train_epochs)}-LR{training_args.learning_rate}-WD{training_args.weight_decay}"
-
 	# WanDB setup
 	if model_args.use_mlp:
 		wandb_proj_name = f"ConvergedProbe-{data_args.task}-DPMLP-Dim{model_args.mlp_dim}-Layer{model_args.mlp_layers}"
@@ -358,7 +351,6 @@ def main():
 	# CONCERN: 写得不优美，先用verbose代替处理如何控制wandb分组
 	if model_args.verbose == 1 and model_args.mod_randomized:
 		wandb_proj_name = f"Probe-{data_args.task}-DP-MLP-ModRand-Mean{model_args.init_mean}-Std{model_args.init_std}"
-		group_name = f"Dim{model_args.mlp_dim}-Layer{model_args.mlp_layers}-Epoch{int(training_args.num_train_epochs)}"
 		serial = f"LR{training_args.learning_rate}-ModRand"
 
 	if model_args.verbose == 2 and model_args.saturated:
@@ -388,7 +380,6 @@ def main():
 	wandb.init(
 		project=wandb_proj_name,
 		name=serial,
-		# group=group_name,
 		)
 
 	# Set up training arguments
@@ -441,6 +432,9 @@ def main():
 
 	# Set seed before initializing model.
 	set_seed(training_args.seed)
+
+	NUM_GPU: int = 1
+	device = set_gpu_env(num_gpus=NUM_GPU)
 
 	data_files = {}
 	dataset_args = {}
