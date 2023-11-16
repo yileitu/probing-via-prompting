@@ -1,62 +1,27 @@
-#!/usr/bin/env python
-# coding=utf-8
-# Copyright 2020 The HuggingFace Inc. team. All rights reserved.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-"""
-Fine-tuning the library models for causal language modeling (GPT, GPT-2, CTRL, ...) on a text file or a dataset.
-
-Here is the full list of checkpoints on the hub that can be fine-tuned by this script:
-https://huggingface.co/models?filter=causal-lm
-"""
-# You can also adapt this script on your own causal language modeling task. Pointers for this are left as comments.
-
-import logging
+# -*- coding: utf-8 -*-
 import os
 import random
 import sys
-from dataclasses import asdict, dataclass, field
-from typing import Optional
+from dataclasses import asdict
 
-import datasets
 import pandas as pd
 import torch
-import transformers
 from datasets import load_dataset
 from tokenizers.pre_tokenizers import WhitespaceSplit
-from transformers import AdamW, AutoConfig, AutoTokenizer, BertTokenizer, CONFIG_MAPPING, EarlyStoppingCallback, \
-	HfArgumentParser, MODEL_FOR_CAUSAL_LM_MAPPING, Trainer, TrainerCallback, TrainerControl, \
-	TrainerState, \
-	TrainingArguments, \
-	default_data_collator, set_seed
+from transformers import AdamW, AutoConfig, AutoTokenizer, BertTokenizer, EarlyStoppingCallback, HfArgumentParser, \
+	Trainer, TrainerCallback, TrainerControl, TrainerState, TrainingArguments, default_data_collator, set_seed
 from transformers.trainer_utils import get_last_checkpoint
 from transformers.utils.versions import require_version
 
 import wandb
+from dp_arguments import DataTrainingArguments, ModelArguments
 from modeling_gated_gpt2 import GPT2Model
 from modeling_gpt2_dp import GPT2ForDiagnosticProbing
-from utils import LABEL_DICT, convert_gate_to_mask, record_num_of_params, set_gpu_env, transform_dict
-from dp_arguments import ModelArguments, DataTrainingArguments
+from utils import LABEL_DICT, convert_gate_to_mask, record_num_of_params, set_gpu_env, setup_logger, transform_dict
 
 # Will error if the minimal version of Transformers is not installed. Remove at your own risks.
 # check_min_version("4.13.0.dev0")
-
 require_version("datasets>=1.8.0", "To fix: pip install -r examples/pytorch/language-modeling/requirements.txt")
-
-logger = logging.getLogger(__name__)
-
-MODEL_CONFIG_CLASSES = list(MODEL_FOR_CAUSAL_LM_MAPPING.keys())
-MODEL_TYPES = tuple(conf.model_type for conf in MODEL_CONFIG_CLASSES)
 
 MAX_LENGTH = {'pos': 350, 'const': 350, 'ner': 350, 'coref': 280, 'srl': 350}
 MAX_TARGET = {'pos': 275, 'const': 175, 'ner': 71, 'coref': 300, 'srl': 11}
@@ -65,7 +30,6 @@ IS_UNARY = {'pos': True, 'const': True, 'ner': True, 'coref': False, 'srl': Fals
 GPT2_ZH_PATH = "uer/gpt2-chinese-cluecorpussmall"
 GPT2_DE_PATH = "dbmdz/german-gpt2"
 GPT2_JA_PATH = "rinna/japanese-gpt2-small"
-
 
 # Define a callback to save evaluation results in a csv file
 eval_results_df = pd.DataFrame(columns=["epoch", "eval_accuracy", "eval_loss"])
@@ -204,26 +168,10 @@ def main():
 	wandb.log(transform_dict(asdict(model_args)))
 	wandb.log(transform_dict(asdict(data_args)))
 
-	# Setup logging
-	logging.basicConfig(
-		format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",
-		datefmt="%m/%d/%Y %H:%M:%S",
-		handlers=[logging.StreamHandler(sys.stdout)],
-		)
-
-	log_level = training_args.get_process_log_level()
-	logger.setLevel(log_level)
-	datasets.utils.logging.set_verbosity(log_level)
-	transformers.utils.logging.set_verbosity(log_level)
-	transformers.utils.logging.enable_default_handler()
-	transformers.utils.logging.enable_explicit_format()
-
-	# Log on each process the small summary:
-	logger.warning(
-		f"Process rank: {training_args.local_rank}, device: {training_args.device}, n_gpu: {training_args.n_gpu}"
-		+ f"distributed training: {bool(training_args.local_rank != -1)}, 16-bits training: {training_args.fp16}"
-		)
-	logger.info(f"Training/evaluation parameters {training_args}")
+	# Misc Setup
+	set_seed(training_args.seed)
+	logger = setup_logger(training_args)
+	device = set_gpu_env(num_gpus=model_args.n_gpu)
 
 	# Detecting last checkpoint.
 	last_checkpoint = None
@@ -239,12 +187,6 @@ def main():
 				f"Checkpoint detected, resuming training at {last_checkpoint}. To avoid this behavior, change "
 				"the `--output_dir` or add `--overwrite_output_dir` to train from scratch."
 				)
-
-	# Set seed before initializing model.
-	set_seed(training_args.seed)
-
-	NUM_GPU: int = 1
-	device = set_gpu_env(num_gpus=NUM_GPU)
 
 	data_files = {}
 	dataset_args = {}
@@ -273,12 +215,6 @@ def main():
 	elif model_args.gpt2_name_or_path:
 		config = AutoConfig.from_pretrained(model_args.gpt2_name_or_path, **config_kwargs)
 		logger.info(f"Model config loaded from pretrained ckpt {model_args.gpt2_name_or_path}")
-	else:
-		config = CONFIG_MAPPING[model_args.model_type]()
-		logger.warning("You are instantiating a new config instance from scratch.")
-		if model_args.config_overrides is not None:
-			logger.info(f"Overriding config: {model_args.config_overrides}")
-			config.update_from_string(model_args.config_overrides)
 
 	# Load tokenizer
 	tokenizer_kwargs = {

@@ -7,7 +7,6 @@ class ModelArguments:
 	"""
 	Arguments pertaining to which model/config/tokenizer we are going to fine-tune, or train from scratch.
 	"""
-
 	gpt2_name_or_path: Optional[str] = field(
 		default=None,
 		metadata={
@@ -39,10 +38,6 @@ class ModelArguments:
 			"help": "Path to trained model."
 			        "Don't set if you want to train a model from scratch."
 			},
-		)
-	model_type: Optional[str] = field(
-		default=None,
-		metadata={"help": "If training from scratch, pass a model type from the list: " + ", ".join(MODEL_TYPES)},
 		)
 	config_overrides: Optional[str] = field(
 		default=None,
@@ -175,6 +170,12 @@ class ModelArguments:
 		default=False,
 		metadata={
 			"help": "If true, extract the embeddings from GPT2 and then pass them as input to the probe."
+			},
+		)
+	n_gpu: int = field(
+		default=1,
+		metadata={
+			"help": "Number of GPUs to use."
 			},
 		)
 
