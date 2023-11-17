@@ -2,7 +2,6 @@ from copy import deepcopy
 from typing import Optional
 
 import torch
-import wandb
 from allennlp.modules import scalar_mix
 from allennlp.modules.span_extractors import SelfAttentiveSpanExtractor
 from torch import nn
@@ -10,6 +9,7 @@ from torch.nn import CrossEntropyLoss
 from transformers import GPT2PreTrainedModel
 from transformers.file_utils import ModelOutput
 
+import wandb
 from utils import STEFunction
 
 
@@ -21,9 +21,10 @@ class DiagnosticProbingOutputs(ModelOutput):
 class GPT2ForDiagnosticProbing(GPT2PreTrainedModel):
 	def __init__(self, config, gpt2):
 		super().__init__(config)
-		# NOTE: Changed
-		self.transformer = gpt2.transformer
-		# self.transformer = gpt2
+		if config.chinese:
+			self.transformer = gpt2.transformer  # To get of rid of LMHead of GPT2LMHeadModel (GPT2-Chinese)
+		else:
+			self.transformer = gpt2
 
 		if config.onehot is False:
 			for param in self.transformer.parameters():
@@ -190,7 +191,6 @@ class GPT2ForDiagnosticProbing(GPT2PreTrainedModel):
 				contextual_embeddings = self.scalar_mix(all_hidden_states)
 		else:
 			contextual_embeddings = torch.nn.functional.one_hot(input_ids, num_classes=self.config.vocab_size).half()
-
 
 		span_mask = span1s[:, :, 0] != -1
 		se_proj1 = self.proj1(contextual_embeddings.transpose(1, 2)).transpose(2, 1).contiguous()

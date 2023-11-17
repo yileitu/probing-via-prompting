@@ -20,18 +20,6 @@ class ModelArguments:
 			"help": "Whether to use GPT2-Chinese model."
 			},
 		)
-	greek: bool = field(
-		default=False,
-		metadata={
-			"help": "Whether to use GPT2-Greek model."
-			},
-		)
-	japanese: bool = field(
-		default=False,
-		metadata={
-			"help": "Whether to use GPT2-Japanese model."
-			},
-		)
 	model_path: Optional[str] = field(
 		default=None,
 		metadata={

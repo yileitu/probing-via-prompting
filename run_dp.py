@@ -8,7 +8,8 @@ import pandas as pd
 import torch
 from datasets import load_dataset
 from tokenizers.pre_tokenizers import WhitespaceSplit
-from transformers import AdamW, AutoConfig, AutoTokenizer, BertTokenizer, EarlyStoppingCallback, GPT2LMHeadModel, \
+from transformers import AdamW, AutoConfig, AutoTokenizer, BertTokenizerFast, EarlyStoppingCallback, \
+	GPT2LMHeadModel, \
 	HfArgumentParser, \
 	Trainer, TrainerCallback, TrainerControl, TrainerState, TrainingArguments, default_data_collator, set_seed
 from transformers.trainer_utils import get_last_checkpoint
@@ -29,9 +30,6 @@ MAX_TARGET = {'pos': 275, 'const': 175, 'ner': 71, 'coref': 300, 'srl': 11}
 IS_UNARY = {'pos': True, 'const': True, 'ner': True, 'coref': False, 'srl': False}
 
 GPT2_ZH_PATH = "uer/gpt2-chinese-cluecorpussmall"
-GPT2_EL_PATH = "nikokons/gpt2-greek"
-# GPT2_EL_PATH = "akhooli/gpt2-small-arabic"
-GPT2_JA_PATH = "rinna/japanese-gpt2-small"
 
 # Define a callback to save evaluation results in a csv file
 eval_results_df = pd.DataFrame(columns=["epoch", "eval_accuracy", "eval_loss"])
@@ -69,18 +67,10 @@ def main():
 
 	# # Post-processing
 	# GPT-2 English or Chinese:
-	if model_args.greek:
-		model_args.gpt2_name_or_path = GPT2_EL_PATH
-		model_args.config_name = GPT2_EL_PATH
-		model_args.tokenizer_name = GPT2_EL_PATH
-	elif model_args.chinese:
+	if model_args.chinese:
 		model_args.gpt2_name_or_path = GPT2_ZH_PATH
 		model_args.config_name = GPT2_ZH_PATH
 		model_args.tokenizer_name = GPT2_ZH_PATH
-	elif model_args.japanese:
-		model_args.gpt2_name_or_path = GPT2_JA_PATH
-		model_args.config_name = GPT2_JA_PATH
-		model_args.tokenizer_name = GPT2_JA_PATH
 
 	# Randomized
 	if model_args.randomized or model_args.mod_randomized or model_args.agg_mod_rand or model_args.fine_mod_rand \
@@ -116,12 +106,6 @@ def main():
 	if model_args.chinese:
 		wandb_proj_name += "-Chinese"
 		training_args.output_dir += "Chinese/"
-	elif model_args.greek:
-		wandb_proj_name += "-Greek"
-		training_args.output_dir += "Greek/"
-	elif model_args.japanese:
-		wandb_proj_name += "-Japanese"
-		training_args.output_dir += "Japanese/"
 
 	# CONCERN: 写得不优美，先用verbose代替处理如何控制wandb分组
 	if model_args.verbose == 1 and model_args.mod_randomized:
@@ -219,8 +203,14 @@ def main():
 		config = AutoConfig.from_pretrained(model_args.gpt2_name_or_path, **config_kwargs)
 		logger.info(f"Model config loaded from pretrained ckpt {model_args.gpt2_name_or_path}")
 
-	if model_args.chinese or model_args.greek:
-		config.vocab_size = 50256
+	config.num_labels = len(label2id)
+	config.saturated = model_args.saturated
+	config.onehot = model_args.onehot
+	if config.onehot:
+		logger.info("Using onehot embeddings.")
+	config.chinese = model_args.chinese
+	if config.chinese:
+		logger.info("Using GPT2-Chinese.")
 
 	# Load tokenizer
 	tokenizer_kwargs = {
@@ -231,11 +221,8 @@ def main():
 		}
 	if model_args.tokenizer_name:
 		if model_args.chinese:
-			tokenizer = BertTokenizer.from_pretrained(model_args.tokenizer_name, **tokenizer_kwargs)
+			tokenizer = BertTokenizerFast.from_pretrained(model_args.tokenizer_name, **tokenizer_kwargs)
 			logger.info("Loaded tokenizer for GPT2-Chinese.")
-		elif model_args.japanese:
-			tokenizer = AutoTokenizer.from_pretrained(model_args.tokenizer_name, **tokenizer_kwargs)
-			logger.info("Loaded tokenizer for GPT2-Japanese.")
 		else:
 			tokenizer = AutoTokenizer.from_pretrained(model_args.tokenizer_name, **tokenizer_kwargs)
 	elif model_args.gpt2_name_or_path:
@@ -245,19 +232,17 @@ def main():
 			"You are instantiating a new tokenizer from scratch. This is not supported by this script."
 			"You can do it from another script, save it, and load it from here, using --tokenizer_name."
 			)
-	tokenizer.pad_token = tokenizer.eos_token
+	if not model_args.chinese:
+		tokenizer.pad_token = tokenizer.eos_token  # BertTokenizerFast already has pad_token, no need for GPT2-Chinese
 	pre_tokenizer = WhitespaceSplit()
 	tokenizer.pre_tokenizer = pre_tokenizer
 
-	config.num_labels = len(label2id)
-	config.saturated = model_args.saturated
-	config.onehot = model_args.onehot
-	if config.onehot:
-		logger.info("Using onehot embeddings.")
+	print("Vocab size of Config before tokenization: ", config.vocab_size)
+	print("Vocab size of Tokenizer before tokenization: ", len(tokenizer))
 
 	# Load GPT2 model
 	if model_args.gpt2_name_or_path:
-		if model_args.chinese or model_args.greek:
+		if model_args.chinese:
 			gpt2 = GPT2LMHeadModel.from_pretrained(
 				model_args.gpt2_name_or_path,
 				cache_dir=model_args.cache_dir,
@@ -324,6 +309,8 @@ def main():
 	config.use_mlp = model_args.use_mlp
 	model = GPT2ForDiagnosticProbing(config, gpt2)
 	record_num_of_params(model, logger)
+	print("Embedding size of GPT2: ", gpt2.get_input_embeddings().weight.shape)
+	print("Embedding size of MyModel: ", model.get_input_embeddings().weight.shape)
 
 	# Preprocessing the datasets.
 	# First we tokenize all the texts.
@@ -339,8 +326,34 @@ def main():
 		end = result.char_to_token(char_end)
 		return [start, end]
 
+	# Determine max_length to pad
+	def pre_tokenize_function(example):
+		"""
+		Determine MAX_LENGTH for GPT2 model of different languages
+		"""
+		result = tokenizer(example['text'])
+		return result
+
+	pre_tokenized_datasets = raw_datasets.map(
+		pre_tokenize_function,
+		batched=False,
+		num_proc=data_args.preprocessing_num_workers,
+		remove_columns=column_names,
+		load_from_cache_file=False,
+		desc="Running tokenizer on dataset",
+		)
+	max_length_train = max(len(x['input_ids']) for x in pre_tokenized_datasets["train"])
+	max_length_val = max(len(x['input_ids']) for x in pre_tokenized_datasets["validation"])
+	max_length_test = max(len(x['input_ids']) for x in pre_tokenized_datasets["test"])
+	max_length = max(max_length_train, max_length_val, max_length_test)
+	print("Max length of input in Train: ", max_length_train)
+	print("Max length of input in Validation: ", max_length_val)
+	print("Max length of input in Test: ", max_length_test)
+	print("Max length of input: ", max_length)
+
+	# Dataset Tokenization
 	def tokenize_function(example):
-		result = tokenizer(example['text'], padding="max_length", max_length=MAX_LENGTH[data_args.task])
+		result = tokenizer(example['text'], padding="max_length", max_length=max_length)
 		pre_tokenized_str = pre_tokenizer.pre_tokenize_str(example['text'])
 
 		num_targets = len(example['targets'])
@@ -359,12 +372,14 @@ def main():
 		return result
 
 	with training_args.main_process_first(desc="dataset map tokenization"):
+		print("Pad token: ", tokenizer.pad_token)
+		print("Pad token ID: ", tokenizer.pad_token_id)
 		tokenized_datasets = raw_datasets.map(
 			tokenize_function,
 			batched=False,
 			num_proc=data_args.preprocessing_num_workers,
 			remove_columns=column_names,
-			load_from_cache_file=not data_args.overwrite_cache,
+			load_from_cache_file=False,
 			desc="Running tokenizer on dataset",
 			)
 

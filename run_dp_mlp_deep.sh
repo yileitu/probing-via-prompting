@@ -40,9 +40,10 @@ python3 run_dp.py \
   --dev \
   --save_strategy epoch \
   --evaluation_strategy epoch \
-  --greek True \
+  --chinese True \
+#  --japanese True \
+#  --greek True \
 #  --randomized \
-#  --chinese True \
 #  --japanese True \
 #  --greek True \
 
