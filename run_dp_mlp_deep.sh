@@ -17,7 +17,7 @@ export TASK_NAME=ner
 export CUDA_LAUNCH_BLOCKING=1
 
 python3 run_dp.py \
-  --seed 42 \
+  --seed 117010251 \
   --n_gpu 1 \
   --do_train \
   --do_eval \
@@ -40,7 +40,9 @@ python3 run_dp.py \
   --dev \
   --save_strategy epoch \
   --evaluation_strategy epoch \
-  --chinese True \
+  --greek True \
+#  --randomized \
+#  --chinese True \
 #  --japanese True \
-#  --german True \
+#  --greek True \
 

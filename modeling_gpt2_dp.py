@@ -21,7 +21,9 @@ class DiagnosticProbingOutputs(ModelOutput):
 class GPT2ForDiagnosticProbing(GPT2PreTrainedModel):
 	def __init__(self, config, gpt2):
 		super().__init__(config)
-		self.transformer = gpt2
+		# NOTE: Changed
+		self.transformer = gpt2.transformer
+		# self.transformer = gpt2
 
 		if config.onehot is False:
 			for param in self.transformer.parameters():

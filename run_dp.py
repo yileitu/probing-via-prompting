@@ -8,7 +8,8 @@ import pandas as pd
 import torch
 from datasets import load_dataset
 from tokenizers.pre_tokenizers import WhitespaceSplit
-from transformers import AdamW, AutoConfig, AutoTokenizer, BertTokenizer, EarlyStoppingCallback, HfArgumentParser, \
+from transformers import AdamW, AutoConfig, AutoTokenizer, BertTokenizer, EarlyStoppingCallback, GPT2LMHeadModel, \
+	HfArgumentParser, \
 	Trainer, TrainerCallback, TrainerControl, TrainerState, TrainingArguments, default_data_collator, set_seed
 from transformers.trainer_utils import get_last_checkpoint
 from transformers.utils.versions import require_version
@@ -28,7 +29,8 @@ MAX_TARGET = {'pos': 275, 'const': 175, 'ner': 71, 'coref': 300, 'srl': 11}
 IS_UNARY = {'pos': True, 'const': True, 'ner': True, 'coref': False, 'srl': False}
 
 GPT2_ZH_PATH = "uer/gpt2-chinese-cluecorpussmall"
-GPT2_DE_PATH = "dbmdz/german-gpt2"
+GPT2_EL_PATH = "nikokons/gpt2-greek"
+# GPT2_EL_PATH = "akhooli/gpt2-small-arabic"
 GPT2_JA_PATH = "rinna/japanese-gpt2-small"
 
 # Define a callback to save evaluation results in a csv file
@@ -67,10 +69,10 @@ def main():
 
 	# # Post-processing
 	# GPT-2 English or Chinese:
-	if model_args.german:
-		model_args.gpt2_name_or_path = GPT2_DE_PATH
-		model_args.config_name = GPT2_DE_PATH
-		model_args.tokenizer_name = GPT2_DE_PATH
+	if model_args.greek:
+		model_args.gpt2_name_or_path = GPT2_EL_PATH
+		model_args.config_name = GPT2_EL_PATH
+		model_args.tokenizer_name = GPT2_EL_PATH
 	elif model_args.chinese:
 		model_args.gpt2_name_or_path = GPT2_ZH_PATH
 		model_args.config_name = GPT2_ZH_PATH
@@ -114,9 +116,9 @@ def main():
 	if model_args.chinese:
 		wandb_proj_name += "-Chinese"
 		training_args.output_dir += "Chinese/"
-	elif model_args.german:
-		wandb_proj_name += "-German"
-		training_args.output_dir += "German/"
+	elif model_args.greek:
+		wandb_proj_name += "-Greek"
+		training_args.output_dir += "Greek/"
 	elif model_args.japanese:
 		wandb_proj_name += "-Japanese"
 		training_args.output_dir += "Japanese/"
@@ -205,6 +207,7 @@ def main():
 		data_args.task = data_args.task.replace("_control", "")
 	label2id = {label: i for i, label in enumerate(LABEL_DICT[data_args.task])}
 
+	# Load GPT2 config
 	config_kwargs = {
 		"cache_dir"     : model_args.cache_dir,
 		"revision"      : model_args.model_revision,
@@ -215,6 +218,9 @@ def main():
 	elif model_args.gpt2_name_or_path:
 		config = AutoConfig.from_pretrained(model_args.gpt2_name_or_path, **config_kwargs)
 		logger.info(f"Model config loaded from pretrained ckpt {model_args.gpt2_name_or_path}")
+
+	if model_args.chinese or model_args.greek:
+		config.vocab_size = 50256
 
 	# Load tokenizer
 	tokenizer_kwargs = {
@@ -251,11 +257,18 @@ def main():
 
 	# Load GPT2 model
 	if model_args.gpt2_name_or_path:
-		gpt2 = GPT2Model.from_pretrained(
-			model_args.gpt2_name_or_path,
-			cache_dir=model_args.cache_dir,
-			config=config
-			)
+		if model_args.chinese or model_args.greek:
+			gpt2 = GPT2LMHeadModel.from_pretrained(
+				model_args.gpt2_name_or_path,
+				cache_dir=model_args.cache_dir,
+				config=config
+				)
+		else:
+			gpt2 = GPT2Model.from_pretrained(
+				model_args.gpt2_name_or_path,
+				cache_dir=model_args.cache_dir,
+				config=config
+				)
 		logger.info(f"Model loaded from pretrained ckpt {model_args.gpt2_name_or_path}")
 	elif model_args.randomized:
 		gpt2 = GPT2Model(config)
