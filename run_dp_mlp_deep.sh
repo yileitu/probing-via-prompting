@@ -2,7 +2,7 @@
 
 #SBATCH -n 4
 #SBATCH --cpus-per-task=4
-#SBATCH --time=24:00:00
+#SBATCH --time=48:00:00
 #SBATCH --mem-per-cpu=4096
 #SBATCH --gpus=1
 #SBATCH --gres=gpumem:10240m
@@ -17,7 +17,7 @@ export TASK_NAME=ner
 export CUDA_LAUNCH_BLOCKING=1
 
 python3 run_dp.py \
-  --seed 117010251 \
+  --seed 42 \
   --n_gpu 1 \
   --do_train \
   --do_eval \
@@ -31,19 +31,14 @@ python3 run_dp.py \
   --cache_dir cache/ \
   --mlp_dropout 0.0 \
   --num_train_epochs 256.0 \
-  --learning_rate 1e-4 \
+  --learning_rate 1e-5 \
   --weight_decay 0.0 \
   --mlp_dim 512 \
-  --mlp_layers 4 \
+  --mlp_layers 96 \
   --fp16 \
   --use_mlp True \
   --dev \
   --save_strategy epoch \
   --evaluation_strategy epoch \
-  --chinese True \
-#  --japanese True \
-#  --greek True \
-#  --randomized \
-#  --japanese True \
-#  --greek True \
-
+  --randomized \
+#  --chinese True

@@ -350,6 +350,7 @@ def main():
 	print("Max length of input in Validation: ", max_length_val)
 	print("Max length of input in Test: ", max_length_test)
 	print("Max length of input: ", max_length)
+	del pre_tokenized_datasets
 
 	# Dataset Tokenization
 	def tokenize_function(example):
